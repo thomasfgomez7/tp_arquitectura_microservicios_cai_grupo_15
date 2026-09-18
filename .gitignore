@@ -1,0 +1,49 @@
+# =========================
+# Build
+# =========================
+bin/
+obj/
+
+# =========================
+# Visual Studio
+# =========================
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =========================
+# Logs (Serilog)
+# =========================
+logs/
+*.log
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Rider / VSCode (optional)
+# =========================
+.idea/
+.vscode/
+
+# =========================
+# Publish output
+# =========================
+publish/
+
+# =========================
+# NuGet
+# =========================
+*.nupkg
+packages/
+
+# =========================
+# Environment / secrets
+# =========================
+appsettings.Development.json
+appsettings.Local.json
