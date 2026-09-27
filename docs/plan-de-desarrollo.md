@@ -77,7 +77,8 @@ Products.API/
 │   └── ProductService.cs                 # implementación
 ├── Repositories/                         # Persistencia
 │   ├── IProductRepository.cs             # interfaz
-│   └── InMemoryProductRepository.cs      # implementación (hasta tener la librería de la cátedra)
+│   ├── InMemoryProductRepository.cs      # implementación (hasta tener la librería de la cátedra)
+│   └── ProductSeedData.cs                # productos precargados para la demo
 ├── Clients/                              # Llamadas a otros microservicios
 │   ├── IOrdersClient.cs                  # interfaz
 │   ├── StubOrdersClient.cs               # implementación provisoria (se elimina en la Etapa 9)
@@ -162,7 +163,7 @@ Clases concretas comunes (sin interfaz): `ErrorCodes`, `NotFoundException`, `Bus
 | `IProductRepository` | `InMemoryProductRepository` → adaptador de la librería de la cátedra | `Repositories/` | Guardar y consultar productos | Singleton | 1 |
 | `IOrdersClient` | `StubOrdersClient` (provisoria) → `OrdersClient` | `Clients/` | Saber si un producto tiene órdenes activas | Singleton (stub) · typed client (HTTP) | 1 y 9 |
 
-Clases concretas: `ProductsController`, `Product`, `CreateProductRequest`, `UpdateProductRequest`, `ProductResponse`, `OrderInfo`.
+Clases concretas: `ProductsController`, `Product`, `CreateProductRequest`, `UpdateProductRequest`, `ProductResponse`, `ProductSeedData` (`Repositories/`, datos de la demo con IDs fijos), `OrderInfo`.
 
 #### Users.API — Juan Pablo
 
@@ -427,21 +428,21 @@ Objetivo: tener la solución compilando, con los cinco proyectos y sus proyectos
 Objetivo: el servicio de productos con todas sus reglas, probado con tests unitarios.
 
 Tests primero (unitarios de `ProductService`, con dobles de `IProductRepository` e `IOrdersClient`):
-- [ ] Crear un producto asigna `Id` y `FechaCreacion`.
-- [ ] Crear un duplicado (mismo nombre en la misma categoría, sin distinguir mayúsculas) lanza PRD-003.
-- [ ] Obtener, actualizar o eliminar un ID inexistente lanza PRD-001.
-- [ ] Eliminar un producto con órdenes activas lanza PRD-004.
-- [ ] Listar filtra por `categoria` y por `nombre`.
+- [x] Crear un producto asigna `Id` y `FechaCreacion`.
+- [x] Crear un duplicado (mismo nombre en la misma categoría, sin distinguir mayúsculas) lanza PRD-003.
+- [x] Obtener, actualizar o eliminar un ID inexistente lanza PRD-001.
+- [x] Eliminar un producto con órdenes activas lanza PRD-004.
+- [x] Listar filtra por `categoria` y por `nombre`.
 
 Clases concretas:
-- [ ] `Product` (Models) y `CreateProductRequest`, `UpdateProductRequest`, `ProductResponse` (DTOs) con Data Annotations (Apéndice A).
-- [ ] `ErrorCodes` (`PRD_001` … `PRD_005`), `NotFoundException`, `BusinessRuleException` (D-10) y `ValidationException`.
+- [x] `Product` (Models) y `CreateProductRequest`, `UpdateProductRequest`, `ProductResponse` (DTOs) con Data Annotations (Apéndice A).
+- [x] `ErrorCodes` (`PRD_001` … `PRD_005`), `NotFoundException`, `BusinessRuleException` (D-10) y `ValidationException`.
 
 Interfaces → implementaciones:
-- [ ] `IProductRepository` → `InMemoryProductRepository`, con datos semilla para la demo (D-03).
-- [ ] `IOrdersClient` → `StubOrdersClient`: implementación provisoria que responde "sin órdenes activas" (se reemplaza por `OrdersClient` en la Etapa 9).
-- [ ] `IProductService` → `ProductService`.
-- [ ] Registro de las tres en `ServiceCollectionExtensions`, junto con `TimeProvider.System`.
+- [x] `IProductRepository` → `InMemoryProductRepository`, con datos semilla para la demo (D-03).
+- [x] `IOrdersClient` → `StubOrdersClient`: implementación provisoria que responde "sin órdenes activas" (se reemplaza por `OrdersClient` en la Etapa 9).
+- [x] `IProductService` → `ProductService`.
+- [x] Registro de las tres en `ServiceCollectionExtensions`, junto con `TimeProvider.System`.
 
 **Lista cuando:** todos los tests unitarios de Products pasan.
 
