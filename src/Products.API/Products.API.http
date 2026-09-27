@@ -1,0 +1,3 @@
+@HostAddress = http://localhost:5001
+
+# Los requests de éxito y de error de cada endpoint se agregan junto con los endpoints.

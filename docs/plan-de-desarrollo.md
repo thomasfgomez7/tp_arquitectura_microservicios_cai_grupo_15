@@ -363,6 +363,7 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-13 | Cart: agregar un producto que ya está en el carrito suma la cantidad; el stock se valida contra el total. | Comportamiento esperable de un carrito. |
 | D-14 | Crear una orden **no** descuenta stock (mejora opcional). | El enunciado no lo exige. |
 | D-15 | Interfaces solo donde aportan desacoplamiento: servicios, persistencia, otros microservicios y dependencias del entorno (criterio de la sección 2.3). | Bajo acoplamiento sin interfaces innecesarias. |
+| D-16 | Los servicios exponen solo HTTP en desarrollo: sin perfil `https` en `launchSettings.json` ni `UseHttpsRedirection`. | Simplifica las llamadas entre servicios en local (sin certificados de desarrollo ni redirecciones). |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -404,15 +405,15 @@ En cada etapa, las tareas de código se separan en **clases concretas** (sin int
 
 Objetivo: tener la solución compilando, con los cinco proyectos y sus proyectos de tests.
 
-- [ ] Instalar el SDK de .NET 10 (cada integrante) y verificar con `dotnet --version`.
-- [ ] Crear `ECommerce.slnx` (reemplaza a `MiniApi.slnx`).
-- [ ] Crear los cinco proyectos en `src/` tomando como guía los archivos de `MiniApi`, sin el ejemplo `WeatherForecast` y preparados para Controllers.
-- [ ] Asignar los puertos fijos en cada `launchSettings.json`.
-- [ ] Agregar `appsettings.Development.json` a cada API y quitarlo del `.gitignore` (D-04).
-- [ ] Crear los cinco proyectos `tests/*.Tests` (xUnit), con carpetas `Unit/` e `Integration/`, y agregarlos a la solución.
-- [ ] Hacer visible la clase `Program` para los tests de integración.
-- [ ] Un test de humo por API que levante la aplicación en memoria.
-- [ ] Eliminar el proyecto `MiniApi` y crear `docs/`.
+- [ ] Instalar el SDK de .NET 10 (cada integrante) y verificar con `dotnet --version`. Thomas: listo (10.0.401).
+- [x] Crear `ECommerce.slnx` (reemplaza a `MiniApi.slnx`).
+- [x] Crear los cinco proyectos en `src/` tomando como guía los archivos de `MiniApi`, sin el ejemplo `WeatherForecast` y preparados para Controllers.
+- [x] Asignar los puertos fijos en cada `launchSettings.json`, solo con perfil HTTP (D-16).
+- [x] Agregar `appsettings.Development.json` a cada API y quitarlo del `.gitignore` (D-04).
+- [x] Crear los cinco proyectos `tests/*.Tests` (xUnit), con carpetas `Unit/` e `Integration/`, y agregarlos a la solución.
+- [x] Hacer visible la clase `Program` para los tests de integración. En .NET 10 no hace falta código: el framework genera `public partial class Program` automáticamente.
+- [x] Un test de humo por API que levante la aplicación en memoria.
+- [x] Eliminar el proyecto `MiniApi` y crear `docs/`.
 - [ ] (Opcional) GitHub Actions que ejecute `dotnet build` y `dotnet test` en cada push a `develop` y en cada PR a `main`.
 - [ ] Juntos: acordar los contratos de la sección 4.4.
 

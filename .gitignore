@@ -5,6 +5,11 @@ bin/
 obj/
 
 # =========================
+# Tests (resultados y cobertura)
+# =========================
+TestResults/
+
+# =========================
 # Visual Studio
 # =========================
 .vs/
@@ -45,5 +50,5 @@ packages/
 # =========================
 # Environment / secrets
 # =========================
-appsettings.Development.json
+# appsettings.Development.json se versiona: define el nivel de detalle de errores por entorno y no contiene secretos (D-04).
 appsettings.Local.json
