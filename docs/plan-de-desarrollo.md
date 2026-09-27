@@ -223,6 +223,7 @@ Clases concretas: `NotificationsController`, `Notification`, `NotificationType` 
   - Alcance: el servicio (`products`, `users`, `cart`, `orders`, `notifications`) o `solution` / `docs` para cambios generales.
 - Al cerrar cada hito, Thomas abre un **Pull Request de `develop` a `main`**.
 - **Nunca se mergea código que no compile.** Antes de cada push y de cada PR, `dotnet build` y `dotnet test` tienen que estar en verde.
+- **Integración continua:** GitHub Actions (`.github/workflows/ci.yml`) compila la solución y ejecuta todos los tests en cada push a `develop` o `main` y en cada PR a `main`. Si el workflow falla, se arregla antes de seguir y el PR no se mergea.
 
 ### Hitos (PR `develop` → `main`)
 
@@ -405,7 +406,7 @@ En cada etapa, las tareas de código se separan en **clases concretas** (sin int
 
 Objetivo: tener la solución compilando, con los cinco proyectos y sus proyectos de tests.
 
-- [ ] Instalar el SDK de .NET 10 (cada integrante) y verificar con `dotnet --version`. Thomas: listo (10.0.401).
+- [x] Instalar el SDK de .NET 10 (cada integrante) y verificar con `dotnet --version`.
 - [x] Crear `ECommerce.slnx` (reemplaza a `MiniApi.slnx`).
 - [x] Crear los cinco proyectos en `src/` tomando como guía los archivos de `MiniApi`, sin el ejemplo `WeatherForecast` y preparados para Controllers.
 - [x] Asignar los puertos fijos en cada `launchSettings.json`, solo con perfil HTTP (D-16).
@@ -414,7 +415,7 @@ Objetivo: tener la solución compilando, con los cinco proyectos y sus proyectos
 - [x] Hacer visible la clase `Program` para los tests de integración. En .NET 10 no hace falta código: el framework genera `public partial class Program` automáticamente.
 - [x] Un test de humo por API que levante la aplicación en memoria.
 - [x] Eliminar el proyecto `MiniApi` y crear `docs/`.
-- [ ] (Opcional) GitHub Actions que ejecute `dotnet build` y `dotnet test` en cada push a `develop` y en cada PR a `main`.
+- [x] (Opcional) GitHub Actions que ejecute `dotnet build` y `dotnet test` en cada push a `develop` y en cada PR a `main` (`.github/workflows/ci.yml`).
 - [ ] Juntos: acordar los contratos de la sección 4.4.
 
 **Lista cuando:** `dotnet build ECommerce.slnx` y `dotnet test ECommerce.slnx` pasan en verde y cada servicio levanta en su puerto.
