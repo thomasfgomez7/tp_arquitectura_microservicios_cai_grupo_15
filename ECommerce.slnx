@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Cart.API/Cart.API.csproj" />
+    <Project Path="src/Notifications.API/Notifications.API.csproj" />
+    <Project Path="src/Orders.API/Orders.API.csproj" />
+    <Project Path="src/Products.API/Products.API.csproj" />
+    <Project Path="src/Users.API/Users.API.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Cart.API.Tests/Cart.API.Tests.csproj" />
+    <Project Path="tests/Notifications.API.Tests/Notifications.API.Tests.csproj" />
+    <Project Path="tests/Orders.API.Tests/Orders.API.Tests.csproj" />
+    <Project Path="tests/Products.API.Tests/Products.API.Tests.csproj" />
+    <Project Path="tests/Users.API.Tests/Users.API.Tests.csproj" />
+  </Folder>
+</Solution>
