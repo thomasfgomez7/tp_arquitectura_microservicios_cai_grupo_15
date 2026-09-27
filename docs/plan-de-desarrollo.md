@@ -416,7 +416,7 @@ Objetivo: tener la solución compilando, con los cinco proyectos y sus proyectos
 - [x] Un test de humo por API que levante la aplicación en memoria.
 - [x] Eliminar el proyecto `MiniApi` y crear `docs/`.
 - [x] (Opcional) GitHub Actions que ejecute `dotnet build` y `dotnet test` en cada push a `develop` y en cada PR a `main` (`.github/workflows/ci.yml`).
-- [ ] Juntos: acordar los contratos de la sección 4.4.
+- [x] Juntos: acordar los contratos de la sección 4.4.
 
 **Lista cuando:** `dotnet build ECommerce.slnx` y `dotnet test ECommerce.slnx` pasan en verde y cada servicio levanta en su puerto.
 
