@@ -265,6 +265,27 @@ Herramientas: xUnit, `Microsoft.AspNetCore.Mvc.Testing` (WebApplicationFactory),
 - **Sin código compartido entre microservicios:** cada servicio es autónomo; la plantilla de Products.API se replica.
 - **Fechas con `TimeProvider`** (incluido en .NET) para poder testear lo que depende de la hora actual.
 
+Los diagramas de arquitectura y de clases están en [`docs/arquitectura.md`](arquitectura.md).
+
+### Convenciones de código
+
+Reglas concretas que surgieron de las revisiones. La referencia de cómo aplicarlas es Products.API.
+
+| Tema | Convención | Por qué |
+|---|---|---|
+| Archivos | Un tipo por archivo, siempre con extensión `.cs`, creado desde el editor ("New Class"). Antes de cada commit, revisar `git status`. | Un archivo sin `.cs` no se compila y el CI no lo detecta. |
+| Nombres | Clases y métodos en inglés (`GetByIdAsync`, `CreateAsync`); propiedades del dominio en español, como el contrato (`Nombre`, `Email`, `IntentosFallidos`). | Coherencia entre servicios; el JSON queda igual al del enunciado. |
+| Asincronía | Todo método de servicio, repositorio o cliente es `async`, termina en `Async` y recibe `CancellationToken cancellationToken = default`. | La persistencia real y las llamadas HTTP lo necesitan. |
+| DTOs | `record` con propiedades `init`. Los requests llevan Data Annotations con `ErrorMessage` en español. Campos numéricos obligatorios como `int?` / `decimal?` con `[Required]`. | Inmutables; el `errorMessage` de 400 sale en español; un campo faltante da 400 y no un 0 silencioso. |
+| Modelos | Sin valores calculados en los defaults: `Id` y fechas los asigna el servicio (`Guid.NewGuid()`, `TimeProvider`). | Se puede testear la fecha exacta. |
+| Excepciones | Exactamente la forma de la sección 4.4: `NotFoundException(errorCode, message)`, `BusinessRuleException(errorCode, message, statusCode)`, `ValidationException(errorCode, message)`. | Los handlers son iguales en todos los servicios. |
+| Status HTTP | `StatusCodes.Status409Conflict` y similares, nunca números sueltos. Las constantes de negocio (por ejemplo, el máximo de intentos) viven en un solo lugar. | Se lee la intención y no hay valores duplicados. |
+| Repositorios en memoria | Registrados como **Singleton**, con `ConcurrentDictionary`, devolviendo listas ya materializadas (`ToList()`). `UpdateAsync` guarda de verdad el objeto. | Scoped pierde los datos entre requests; `List<T>` falla con requests simultáneos. |
+| Inyección de dependencias | Todo se registra en `Infrastructure/ServiceCollectionExtensions.cs` (`AddXxxServices()`), llamado desde `Program.cs`. Cada API tiene un `DependencyInjectionTests`. | Los tests unitarios crean el servicio a mano y no detectan registros faltantes. |
+| Tests | `Unit/Services/`, `Unit/Repositories/`, `Integration/`. Nombre `Metodo_Escenario_ResultadoEsperado`. Se verifica `ErrorCode`, `StatusCode` y `Message` de cada excepción. | Mismo formato en todos los servicios; se prueba el contrato completo. |
+| Contratos entre servicios | Los endpoints y códigos de la sección 4.4 (y 5.1) no se quitan ni se cambian sin acordarlo y actualizar el plan. | El servicio que rompe el contrato sigue en verde; el que falla es el otro. |
+| Commits | Cada commit compila, pasa los tests y no incluye archivos vacíos ni código comentado. | Todo lo que está en `develop` tiene que funcionar. |
+
 ---
 
 ## 4. Reparto de tareas: Thomas y Juan Pablo
