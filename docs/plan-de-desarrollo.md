@@ -96,7 +96,9 @@ Products.API/
 │   ├── NotFoundExceptionHandler.cs       # implementa IExceptionHandler
 │   ├── BusinessRuleExceptionHandler.cs   # implementa IExceptionHandler
 │   ├── ValidationExceptionHandler.cs     # implementa IExceptionHandler
-│   └── GlobalExceptionHandler.cs         # implementa IExceptionHandler
+│   ├── GlobalExceptionHandler.cs         # implementa IExceptionHandler
+│   ├── ErrorHandlingOptions.cs           # nivel de detalle por entorno (appsettings)
+│   └── ModelStateErrorMessage.cs         # errores de validación → errorMessage "A; B; C."
 ├── Infrastructure/
 │   ├── ICorrelationIdAccessor.cs         # interfaz
 │   ├── CorrelationIdAccessor.cs          # implementación
@@ -389,6 +391,9 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-14 | Crear una orden **no** descuenta stock (mejora opcional). | El enunciado no lo exige. |
 | D-15 | Interfaces solo donde aportan desacoplamiento: servicios, persistencia, otros microservicios y dependencias del entorno (criterio de la sección 2.3). | Bajo acoplamiento sin interfaces innecesarias. |
 | D-16 | Los servicios exponen solo HTTP en desarrollo: sin perfil `https` en `launchSettings.json` ni `UseHttpsRedirection`. | Simplifica las llamadas entre servicios en local (sin certificados de desarrollo ni redirecciones). |
+| D-17 | Los ids de ruta se reciben como texto (`{id}`, no `{id:guid}`) y el controller los convierte; si no es un GUID válido responde 404 con el código "no encontrado" del servicio. | El enunciado muestra `GET /api/products/99` → 404 PRD-001. Con `{id:guid}` el ruteo devuelve un 404 vacío, sin `errorCode`. |
+| D-18 | Errores inesperados (500): en `appsettings.Development.json` (`ErrorHandling:IncludeExceptionDetails = true`) el `detail` incluye el mensaje de la excepción; en producción, un texto genérico. Nunca se expone el stack trace. | Requisito 5.2: controlar el nivel de detalle por entorno. |
+| D-19 | Un body que no es JSON válido responde PRD-002 con el mensaje único "El cuerpo de la solicitud no es un JSON válido."; los errores de Data Annotations se unen como "A; B; C.". | Los mensajes de .NET para JSON inválido están en inglés; el enunciado pide listar los problemas separados por punto y coma. |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -476,20 +481,20 @@ Interfaces → implementaciones:
 Objetivo: exponer el servicio por HTTP respetando exactamente el contrato del enunciado.
 
 Tests primero (integración con `WebApplicationFactory`):
-- [ ] Cada endpoint devuelve el status correcto en el caso exitoso (200, 201 con header `Location`, 204).
-- [ ] Cada error del catálogo PRD devuelve el JSON exacto del contrato (`type`, `title`, `status`, `detail`, `instance`, `errorCode`, `errorMessage`).
-- [ ] Un request inválido devuelve PRD-002 con los problemas separados por `;`.
-- [ ] Una excepción inesperada devuelve PRD-005 sin stack trace.
+- [x] Cada endpoint devuelve el status correcto en el caso exitoso (200, 201 con header `Location`, 204).
+- [x] Cada error del catálogo PRD devuelve el JSON exacto del contrato (`type`, `title`, `status`, `detail`, `instance`, `errorCode`, `errorMessage`).
+- [x] Un request inválido devuelve PRD-002 con los problemas separados por `;`.
+- [x] Una excepción inesperada devuelve PRD-005 sin stack trace.
 
 Clases concretas:
-- [ ] `ProductsController` con los cinco endpoints (depende de `IProductService`).
-- [ ] `ErrorResponseWriter`: arma y escribe el JSON de error del contrato; lo usan todos los handlers.
-- [ ] Redirigir la validación automática de `[ApiController]` a una `ValidationException` con PRD-002.
-- [ ] Nivel de detalle de errores según entorno (`appsettings.Development.json` vs producción).
-- [ ] `Products.API.http` con requests de éxito y de error.
+- [x] `ProductsController` con los cinco endpoints (depende de `IProductService`).
+- [x] `ErrorResponseWriter`: arma y escribe el JSON de error del contrato; lo usan todos los handlers.
+- [x] Redirigir la validación automática de `[ApiController]` a una `ValidationException` con PRD-002.
+- [x] Nivel de detalle de errores según entorno (`appsettings.Development.json` vs producción).
+- [x] `Products.API.http` con requests de éxito y de error.
 
 Implementaciones de `IExceptionHandler` (framework):
-- [ ] `NotFoundExceptionHandler`, `BusinessRuleExceptionHandler`, `ValidationExceptionHandler` y `GlobalExceptionHandler`, registrados en ese orden (del más específico al más genérico), con `AddProblemDetails()` y `app.UseExceptionHandler()`.
+- [x] `NotFoundExceptionHandler`, `BusinessRuleExceptionHandler`, `ValidationExceptionHandler` y `GlobalExceptionHandler`, registrados en ese orden (del más específico al más genérico), con `AddProblemDetails()` y `app.UseExceptionHandler()`.
 
 **Lista cuando:** todos los errores del catálogo PRD están cubiertos por tests de integración en verde. Thomas avisa a Juan Pablo para que replique esta capa en Users.
 
