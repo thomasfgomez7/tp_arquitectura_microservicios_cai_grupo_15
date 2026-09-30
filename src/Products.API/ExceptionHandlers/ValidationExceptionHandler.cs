@@ -3,7 +3,7 @@ using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
 
-public class ValidationExceptionHandler(ErrorResponseWriter writer) : IExceptionHandler
+public class ValidationExceptionHandler(ErrorResponseWriter writer, ILogger<ValidationExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext context, Exception exception, CancellationToken cancellationToken)
     {
@@ -12,6 +12,7 @@ public class ValidationExceptionHandler(ErrorResponseWriter writer) : IException
             return false;
         }
 
+        logger.LogWarning("Datos inválidos {ErrorCode}: {ErrorMessage}", ex.ErrorCode, ex.Message);
         await writer.WriteAsync(context, StatusCodes.Status400BadRequest, ex.ErrorCode, ex.Message, cancellationToken: cancellationToken);
         return true;
     }

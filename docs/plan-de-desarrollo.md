@@ -102,8 +102,10 @@ Products.API/
 ├── Infrastructure/
 │   ├── ICorrelationIdAccessor.cs         # interfaz
 │   ├── CorrelationIdAccessor.cs          # implementación
-│   ├── CorrelationIdMiddleware.cs
-│   ├── RequestLoggingMiddleware.cs
+│   ├── CorrelationIdMiddleware.cs        # toma o genera X-Correlation-Id
+│   ├── RequestLoggingMiddleware.cs       # log de inicio y fin con duración
+│   ├── HttpContextItemKeys.cs            # claves compartidas en HttpContext.Items
+│   ├── LoggingExtensions.cs              # configuración de Serilog (consola + archivo JSON)
 │   ├── CorrelationIdDelegatingHandler.cs # hereda de DelegatingHandler (Etapa 9)
 │   ├── DownstreamServiceHealthCheck.cs   # implementa IHealthCheck (Etapa 9)
 │   ├── HealthCheckResponseWriter.cs
@@ -394,6 +396,8 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-17 | Los ids de ruta se reciben como texto (`{id}`, no `{id:guid}`) y el controller los convierte; si no es un GUID válido responde 404 con el código "no encontrado" del servicio. | El enunciado muestra `GET /api/products/99` → 404 PRD-001. Con `{id:guid}` el ruteo devuelve un 404 vacío, sin `errorCode`. |
 | D-18 | Errores inesperados (500): en `appsettings.Development.json` (`ErrorHandling:IncludeExceptionDetails = true`) el `detail` incluye el mensaje de la excepción; en producción, un texto genérico. Nunca se expone el stack trace. | Requisito 5.2: controlar el nivel de detalle por entorno. |
 | D-19 | Un body que no es JSON válido responde PRD-002 con el mensaje único "El cuerpo de la solicitud no es un JSON válido."; los errores de Data Annotations se unen como "A; B; C.". | Los mensajes de .NET para JSON inválido están en inglés; el enunciado pide listar los problemas separados por punto y coma. |
+| D-20 | Un `X-Correlation-Id` recibido solo se acepta si tiene hasta 64 caracteres de `[A-Za-z0-9._-]`; si no, se genera uno nuevo (GUID). | El valor viene del cliente y termina escrito en logs y en otros servicios: se evita inyectar texto arbitrario. |
+| D-21 | Serilog se registra con `services.AddSerilog(preserveStaticLogger: true, ...)`, sin usar `Log.Logger` estático. El archivo JSON se desactiva en los tests (`LogFile:Enabled = false`). | Con el logger estático, cuando los tests levantan varias APIs en paralelo, la última reemplaza el logger de las demás y los logs se pierden. |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -505,20 +509,20 @@ Implementaciones de `IExceptionHandler` (framework):
 Objetivo: observabilidad del servicio.
 
 Tests primero:
-- [ ] Toda respuesta incluye el header `X-Correlation-Id`.
-- [ ] Si el request trae `X-Correlation-Id`, la respuesta devuelve el mismo valor.
-- [ ] Las respuestas de error incluyen el campo `correlationId` (D-11).
+- [x] Toda respuesta incluye el header `X-Correlation-Id`.
+- [x] Si el request trae `X-Correlation-Id`, la respuesta devuelve el mismo valor.
+- [x] Las respuestas de error incluyen el campo `correlationId` (D-11).
 
 Clases concretas:
-- [ ] Configuración de Serilog, primera en `Program.cs`: consola en formato legible y archivo en JSON estructurado dentro de `logs/`.
-- [ ] `CorrelationIdMiddleware`: toma o genera el `X-Correlation-Id`, lo devuelve en la respuesta y lo agrega al contexto de logs.
-- [ ] `RequestLoggingMiddleware`: log de inicio y fin de cada request con su duración.
-- [ ] `ErrorResponseWriter` agrega el campo `correlationId`.
-- [ ] Los handlers loguean los errores de negocio como `Warning` y los inesperados como `Error`, con su `ErrorCode`.
-- [ ] Cada log incluye Timestamp, Nivel, Servicio, Endpoint, CorrelationId y ErrorCode cuando aplique.
+- [x] Configuración de Serilog, primera en `Program.cs`: consola en formato legible y archivo en JSON estructurado dentro de `logs/`.
+- [x] `CorrelationIdMiddleware`: toma o genera el `X-Correlation-Id`, lo devuelve en la respuesta y lo agrega al contexto de logs.
+- [x] `RequestLoggingMiddleware`: log de inicio y fin de cada request con su duración.
+- [x] `ErrorResponseWriter` agrega el campo `correlationId`.
+- [x] Los handlers loguean los errores de negocio como `Warning` y los inesperados como `Error`, con su `ErrorCode`.
+- [x] Cada log incluye Timestamp, Nivel, Servicio, Endpoint, CorrelationId y ErrorCode cuando aplique.
 
 Interfaces → implementaciones:
-- [ ] `ICorrelationIdAccessor` → `CorrelationIdAccessor`: expone el ID del request actual a los handlers y, desde la Etapa 9, al `CorrelationIdDelegatingHandler`.
+- [x] `ICorrelationIdAccessor` → `CorrelationIdAccessor`: expone el ID del request actual a los handlers y, desde la Etapa 9, al `CorrelationIdDelegatingHandler`.
 
 **Lista cuando:** los tests pasan y un request con error deja en el archivo JSON una línea con todos los campos pedidos.
 

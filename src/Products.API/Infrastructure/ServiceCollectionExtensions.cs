@@ -23,6 +23,17 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Correlation ID del request actual (sección 5.5 del enunciado).
+    /// </summary>
+    public static IServiceCollection AddCorrelationId(this IServiceCollection services)
+    {
+        services.AddHttpContextAccessor();
+        services.AddSingleton<ICorrelationIdAccessor, CorrelationIdAccessor>();
+
+        return services;
+    }
+
+    /// <summary>
     /// Manejo global de errores con IExceptionHandler (sección 5.2 del enunciado).
     /// Los handlers se registran del más específico al más genérico: el framework usa el primero que devuelve true.
     /// </summary>

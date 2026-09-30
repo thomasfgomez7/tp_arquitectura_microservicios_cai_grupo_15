@@ -1,12 +1,14 @@
 using Products.API.Exceptions;
+using Products.API.Infrastructure;
 
 namespace Products.API.ExceptionHandlers;
 
 /// <summary>
-/// Arma y escribe la respuesta de error del contrato (sección 3.1 del enunciado).
-/// Es el único lugar que conoce el formato; los handlers solo deciden status, código y mensaje.
+/// Arma y escribe la respuesta de error del contrato (sección 3.1 del enunciado) más el campo
+/// correlationId (D-11). Es el único lugar que conoce el formato; los handlers solo deciden
+/// status, código y mensaje.
 /// </summary>
-public class ErrorResponseWriter
+public class ErrorResponseWriter(ICorrelationIdAccessor correlationIdAccessor)
 {
     private sealed record StatusInfo(string Type, string Title, string Detail);
 
@@ -37,6 +39,8 @@ public class ErrorResponseWriter
     {
         var info = InfoByStatus.GetValueOrDefault(statusCode, InfoByStatus[StatusCodes.Status500InternalServerError]);
 
+        // Para que el log de fin del request (RequestLoggingMiddleware) incluya el errorCode.
+        context.Items[HttpContextItemKeys.ErrorCode] = errorCode;
         context.Response.StatusCode = statusCode;
 
         return context.Response.WriteAsJsonAsync(
@@ -48,7 +52,8 @@ public class ErrorResponseWriter
                 detail = detail ?? DetailByErrorCode.GetValueOrDefault(errorCode, info.Detail),
                 instance = context.Request.Path.Value,
                 errorCode,
-                errorMessage
+                errorMessage,
+                correlationId = correlationIdAccessor.CorrelationId
             },
             options: null,
             contentType: "application/problem+json",

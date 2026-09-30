@@ -11,7 +11,7 @@ using Products.API.Exceptions;
 
 namespace Products.API.Tests.Integration;
 
-public class ProductsEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class ProductsEndpointsTests(ProductsApiFactory factory) : IClassFixture<ProductsApiFactory>
 {
     // Producto de los datos semilla (ProductSeedData); ningún test lo modifica.
     private const string NotebookId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";

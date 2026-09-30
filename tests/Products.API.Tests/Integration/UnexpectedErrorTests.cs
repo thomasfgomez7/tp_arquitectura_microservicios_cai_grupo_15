@@ -9,7 +9,7 @@ using Products.API.Services;
 
 namespace Products.API.Tests.Integration;
 
-public class UnexpectedErrorTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class UnexpectedErrorTests(ProductsApiFactory factory) : IClassFixture<ProductsApiFactory>
 {
     private const string MensajeInterno = "Se cayó la conexión con la base de datos";
 

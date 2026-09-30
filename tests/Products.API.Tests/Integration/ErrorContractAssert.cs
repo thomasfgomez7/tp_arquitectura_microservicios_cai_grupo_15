@@ -34,6 +34,11 @@ public static class ErrorContractAssert
             Assert.Equal(errorMessage, body.GetProperty("errorMessage").GetString());
         }
 
+        // D-11: el Correlation ID viaja en el body de error y coincide con el header de la respuesta.
+        var correlationId = body.GetProperty("correlationId").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(correlationId));
+        Assert.Equal(correlationId, response.Headers.GetValues("X-Correlation-Id").Single());
+
         Assert.False(body.TryGetProperty("stackTrace", out _));
         Assert.False(body.TryGetProperty("exception", out _));
 

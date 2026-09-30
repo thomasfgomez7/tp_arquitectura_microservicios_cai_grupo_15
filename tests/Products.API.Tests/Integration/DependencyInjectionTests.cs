@@ -4,7 +4,7 @@ using Products.API.Services;
 
 namespace Products.API.Tests.Integration;
 
-public class DependencyInjectionTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class DependencyInjectionTests(ProductsApiFactory factory) : IClassFixture<ProductsApiFactory>
 {
     [Fact]
     public void ProductService_ConLaConfiguracionDeLaApp_SeResuelveConTodasSusDependencias()
