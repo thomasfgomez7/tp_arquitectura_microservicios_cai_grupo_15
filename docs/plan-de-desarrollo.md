@@ -4,6 +4,8 @@ Trabajo práctico de Construcción de Aplicaciones Informáticas — Grupo 15.
 
 Integrantes: **Thomas** y **Juan Pablo**.
 
+Consignas del trabajo: [`TP_Microservicios_ECommerce_v7.md`](TP_Microservicios_ECommerce_v7.md) (versión en Markdown del [`.docx` original](TP_Microservicios_ECommerce_v7.docx) de la cátedra). Las referencias a "el enunciado" en este documento remiten a ese archivo.
+
 Este documento es la guía de desarrollo del equipo: describe las decisiones tomadas, la forma de trabajo, el reparto de tareas para avanzar en paralelo y las etapas con sus tareas. Las casillas se marcan a medida que avanzamos.
 
 ---
