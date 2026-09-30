@@ -78,22 +78,4 @@ public class UserService(
             Email = user.Email
         };
     }
-
-    public async Task<UserResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var user = await repository.ObtenerPorIdAsync(id, cancellationToken);
-        
-        if (user == null)
-            throw new NotFoundException(ErrorCodes.USR_007, "Usuario no encontrado.");
-
-        return new UserResponse
-        {
-            Id = user.Id,
-            Nombre = user.Nombre,
-            Apellido = user.Apellido,
-            Email = user.Email,
-            FechaRegistro = user.FechaRegistro,
-            Activo = user.Activo
-        };
-    }
 }

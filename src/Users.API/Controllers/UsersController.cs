@@ -21,11 +21,4 @@ public class UsersController(IUserService userService) : ControllerBase
         var response = await userService.LoginAsync(request, cancellationToken);
         return Ok(response);
     }
-
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetByIdAsync(Guid id, CancellationToken cancellationToken)
-    {
-        var response = await userService.GetByIdAsync(id, cancellationToken);
-        return Ok(response);
-    }
 }
