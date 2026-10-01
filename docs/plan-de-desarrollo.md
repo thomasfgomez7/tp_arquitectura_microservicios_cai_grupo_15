@@ -277,7 +277,7 @@ Herramientas: xUnit, `Microsoft.AspNetCore.Mvc.Testing` (WebApplicationFactory),
 - **Sin código compartido entre microservicios:** cada servicio es autónomo; la plantilla de Products.API se replica.
 - **Fechas con `TimeProvider`** (incluido en .NET) para poder testear lo que depende de la hora actual.
 
-Los diagramas de arquitectura y de clases están en [`docs/arquitectura.md`](arquitectura.md).
+Los diagramas de arquitectura y de clases están en [`docs/arquitectura.md`](arquitectura.md). Los repasos están en [`docs/repaso-general.md`](repaso-general.md) (vista de conjunto del proyecto) y [`docs/repaso-products-api.md`](repaso-products-api.md) (cómo se construyó Products.API, con el porqué de cada decisión).
 
 ### Convenciones de código
 
