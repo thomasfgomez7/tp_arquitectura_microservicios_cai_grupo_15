@@ -1,3 +1,4 @@
+using Products.API.DTOs;
 using Products.API.Exceptions;
 using Products.API.Infrastructure;
 
@@ -5,8 +6,8 @@ namespace Products.API.ExceptionHandlers;
 
 /// <summary>
 /// Arma y escribe la respuesta de error del contrato (sección 3.1 del enunciado) más el campo
-/// correlationId (D-11). Es el único lugar que conoce el formato; los handlers solo deciden
-/// status, código y mensaje.
+/// correlationId (D-11). Es el único lugar que conoce el formato: lo usan los exception handlers
+/// para las respuestas reales y Swagger para los ejemplos.
 /// </summary>
 public class ErrorResponseWriter(ICorrelationIdAccessor correlationIdAccessor)
 {
@@ -29,6 +30,31 @@ public class ErrorResponseWriter(ICorrelationIdAccessor correlationIdAccessor)
         [ErrorCodes.PRD_004] = "No se puede eliminar el recurso."
     };
 
+    public const string ContentType = "application/problem+json";
+
+    public static ErrorResponse Build(
+        int statusCode,
+        string errorCode,
+        string errorMessage,
+        string? instance,
+        string? correlationId,
+        string? detail = null)
+    {
+        var info = InfoByStatus.GetValueOrDefault(statusCode, InfoByStatus[StatusCodes.Status500InternalServerError]);
+
+        return new ErrorResponse
+        {
+            Type = info.Type,
+            Title = info.Title,
+            Status = statusCode,
+            Detail = detail ?? DetailByErrorCode.GetValueOrDefault(errorCode, info.Detail),
+            Instance = instance,
+            ErrorCode = errorCode,
+            ErrorMessage = errorMessage,
+            CorrelationId = correlationId
+        };
+    }
+
     public Task WriteAsync(
         HttpContext context,
         int statusCode,
@@ -37,26 +63,12 @@ public class ErrorResponseWriter(ICorrelationIdAccessor correlationIdAccessor)
         string? detail = null,
         CancellationToken cancellationToken = default)
     {
-        var info = InfoByStatus.GetValueOrDefault(statusCode, InfoByStatus[StatusCodes.Status500InternalServerError]);
-
         // Para que el log de fin del request (RequestLoggingMiddleware) incluya el errorCode.
         context.Items[HttpContextItemKeys.ErrorCode] = errorCode;
         context.Response.StatusCode = statusCode;
 
-        return context.Response.WriteAsJsonAsync(
-            new
-            {
-                type = info.Type,
-                title = info.Title,
-                status = statusCode,
-                detail = detail ?? DetailByErrorCode.GetValueOrDefault(errorCode, info.Detail),
-                instance = context.Request.Path.Value,
-                errorCode,
-                errorMessage,
-                correlationId = correlationIdAccessor.CorrelationId
-            },
-            options: null,
-            contentType: "application/problem+json",
-            cancellationToken: cancellationToken);
+        var body = Build(statusCode, errorCode, errorMessage, context.Request.Path.Value, correlationIdAccessor.CorrelationId, detail);
+
+        return context.Response.WriteAsJsonAsync(body, options: null, contentType: ContentType, cancellationToken: cancellationToken);
     }
 }

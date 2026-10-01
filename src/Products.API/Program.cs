@@ -6,10 +6,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSerilogLogging(builder.Configuration, builder.Environment);
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddSwaggerDocumentation(builder.Environment);
 builder.Services.AddProductServices();
 builder.Services.AddCorrelationId();
 builder.Services.AddErrorHandling(builder.Configuration);
+builder.Services.AddProductHealthChecks();
 
 var app = builder.Build();
 
@@ -19,11 +20,8 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
+app.UseSwaggerDocumentation();
 app.MapControllers();
+app.MapProductHealthChecks();
 
 app.Run();

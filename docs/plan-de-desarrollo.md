@@ -73,7 +73,8 @@ Products.API/
 ├── DTOs/                                 # Request y Response DTOs
 │   ├── CreateProductRequest.cs
 │   ├── UpdateProductRequest.cs
-│   └── ProductResponse.cs
+│   ├── ProductResponse.cs
+│   └── ErrorResponse.cs                  # contrato de error (sección 3.1), usado también por Swagger
 ├── Services/                             # Lógica de negocio
 │   ├── IProductService.cs                # interfaz
 │   └── ProductService.cs                 # implementación
@@ -108,7 +109,12 @@ Products.API/
 │   ├── LoggingExtensions.cs              # configuración de Serilog (consola + archivo JSON)
 │   ├── CorrelationIdDelegatingHandler.cs # hereda de DelegatingHandler (Etapa 9)
 │   ├── DownstreamServiceHealthCheck.cs   # implementa IHealthCheck (Etapa 9)
-│   ├── HealthCheckResponseWriter.cs
+│   ├── HealthCheckResponseWriter.cs      # respuesta JSON de /health
+│   ├── HealthCheckExtensions.cs          # registra checks y mapea /health, /health/ready y /health/live
+│   ├── ProductRepositoryHealthCheck.cs   # implementa IHealthCheck: la persistencia responde (ready)
+│   ├── SwaggerExtensions.cs              # Swashbuckle + XML comments
+│   ├── ProducesErrorAttribute.cs         # [ProducesError(404, PRD_001, ...)] documenta un error del catálogo
+│   ├── ErrorExamplesOperationFilter.cs   # implementa IOperationFilter: ejemplo JSON por cada errorCode
 │   └── ServiceCollectionExtensions.cs    # único lugar que asocia interfaces con implementaciones
 ├── logs/                                 # Generado por Serilog (ignorado por git)
 ├── Properties/launchSettings.json
@@ -398,6 +404,9 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-19 | Un body que no es JSON válido responde PRD-002 con el mensaje único "El cuerpo de la solicitud no es un JSON válido."; los errores de Data Annotations se unen como "A; B; C.". | Los mensajes de .NET para JSON inválido están en inglés; el enunciado pide listar los problemas separados por punto y coma. |
 | D-20 | Un `X-Correlation-Id` recibido solo se acepta si tiene hasta 64 caracteres de `[A-Za-z0-9._-]`; si no, se genera uno nuevo (GUID). | El valor viene del cliente y termina escrito en logs y en otros servicios: se evita inyectar texto arbitrario. |
 | D-21 | Serilog se registra con `services.AddSerilog(preserveStaticLogger: true, ...)`, sin usar `Log.Logger` estático. El archivo JSON se desactiva en los tests (`LogFile:Enabled = false`). | Con el logger estático, cuando los tests levantan varias APIs en paralelo, la última reemplaza el logger de las demás y los logs se pierden. |
+| D-22 | Swagger UI queda habilitado en todos los entornos, en `/swagger`. | El enunciado lo pide en cada microservicio y la demo se hace desde ahí. En un sistema real se restringiría a desarrollo. |
+| D-23 | Los errores se documentan con `[ProducesError(status, código, mensaje)]`, que hereda de `ProducesResponseType`, y un `IOperationFilter` arma el ejemplo con `ErrorResponseWriter.Build`. No se usa `Swashbuckle.AspNetCore.Filters`. | Ese paquete no tiene versión para Swashbuckle 10. Además, el ejemplo de Swagger sale del mismo código que arma las respuestas reales. |
+| D-24 | `/health/live` solo verifica que el proceso responda; `/health/ready` verifica la persistencia (y desde la Etapa 9, los servicios de los que depende). Healthy y Degraded responden 200; Unhealthy, 503. | Separar "vivo" de "listo para atender" es la convención de los health checks: un servicio puede estar vivo con una dependencia caída. |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -533,14 +542,14 @@ Interfaces → implementaciones:
 Objetivo: cerrar Products.API como plantilla del resto de los servicios.
 
 Tests primero:
-- [ ] `/swagger/v1/swagger.json` responde 200 y documenta todos los status de cada endpoint.
-- [ ] `/health`, `/health/ready` y `/health/live` responden JSON con `Healthy`, `Degraded` o `Unhealthy`.
+- [x] `/swagger/v1/swagger.json` responde 200 y documenta todos los status de cada endpoint.
+- [x] `/health`, `/health/ready` y `/health/live` responden JSON con `Healthy`, `Degraded` o `Unhealthy`.
 
 Clases concretas:
-- [ ] Reemplazar `AddOpenApi` de la plantilla por Swashbuckle, con Swagger UI en `/swagger`.
-- [ ] XML comments en el controller y los DTOs; endpoints agrupados por tags.
-- [ ] Documentar cada status posible con `ProducesResponseType`, incluyendo ejemplos de éxito y de error con su `errorCode`.
-- [ ] `HealthCheckResponseWriter`: respuesta JSON de los health checks.
+- [x] Reemplazar `AddOpenApi` de la plantilla por Swashbuckle, con Swagger UI en `/swagger`.
+- [x] XML comments en el controller y los DTOs; endpoints agrupados por tags.
+- [x] Documentar cada status posible con `ProducesResponseType`, incluyendo ejemplos de éxito y de error con su `errorCode`.
+- [x] `HealthCheckResponseWriter`: respuesta JSON de los health checks.
 
 **Lista cuando:** Products.API cumple todos los requerimientos funcionales y no funcionales y queda lista como plantilla.
 
