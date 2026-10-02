@@ -195,7 +195,7 @@ Clases concretas: `UsersController`, `User`, `RegisterUserRequest`, `LoginReques
 | `ICartRepository` | `InMemoryCartRepository` → adaptador de la librería de la cátedra | `Repositories/` | Guardar y consultar carritos | Singleton | 6 |
 | `IProductsClient` | `ProductsClient` | `Clients/` | Consultar existencia y stock en Products.API | Typed client | 6 |
 
-Clases concretas: `CartController`, `ShoppingCart` (no `Cart`: ese nombre choca con el namespace raíz `Cart.API`), `CartItem`, `AddCartItemRequest`, `UpdateCartItemRequest`, `CartResponse`, `CartItemResponse`, `ProductInfo`.
+Clases concretas: `CartController`, `ShoppingCart` (no `Cart`: ese nombre choca con el namespace raíz `Cart.API`), `CartItem`, `CartSeedData` (`Repositories/`, carrito del ejemplo del enunciado), `CartRepositoryHealthCheck` (`Infrastructure/`), `AddCartItemRequest`, `UpdateCartItemRequest`, `CartResponse`, `CartItemResponse`, `ProductInfo`.
 
 #### Orders.API — Juan Pablo
 
@@ -601,12 +601,12 @@ Transversales (Bloque 4, replicando las Etapas 3 y 4):
 Objetivo: primer servicio que consume a otro.
 
 Tests primero:
-- [x] Agregar un producto inexistente lanza CRT-002; sin stock suficiente, CRT-003. (Cantidad ≤ 0 → CRT-004 se valida con Data Annotations: va en los tests de integración.)
+- [x] Agregar un producto inexistente lanza CRT-002; sin stock suficiente, CRT-003; cantidad ≤ 0, CRT-004 (este último con Data Annotations, en los tests de integración).
 - [x] Operar sobre un usuario sin carrito lanza CRT-001.
 - [x] Agregar un producto que ya está en el carrito suma la cantidad (D-13).
 - [x] Actualizar cantidad, quitar un producto y vaciar el carrito.
 - [x] `ProductsClient` (con un `HttpMessageHandler` falso): 200 devuelve el producto, 404 devuelve "no existe", un error o timeout lanza una excepción que termina en CRT-005 (D-28).
-- [ ] Contrato de errores completo (CRT-001 a CRT-005) en tests de integración.
+- [x] Contrato de errores completo (CRT-001 a CRT-005) en tests de integración.
 
 Lógica de negocio:
 
@@ -621,9 +621,9 @@ Interfaces → implementaciones:
 - [x] `ICartService` → `CartService`. El carrito se crea con el primer `POST /items`.
 
 Capa HTTP y transversales (replicando la plantilla):
-- [ ] `CartController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
-- [ ] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
-- [ ] `Cart.API.http` con requests de éxito y de error.
+- [x] `CartController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
+- [x] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
+- [x] `Cart.API.http` con requests de éxito y de error.
 
 ### Etapa 7 — Orders.API
 

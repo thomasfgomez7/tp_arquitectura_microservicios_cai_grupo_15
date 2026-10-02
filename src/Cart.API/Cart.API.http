@@ -1,3 +1,98 @@
 @HostAddress = http://localhost:5004
+# Carrito de los datos semilla (ejemplo del enunciado)
+@UsuarioSemilla = a1b2c3d4-0000-0000-0000-111122223333
+# Usuario sin carrito: cambiarlo para empezar de cero
+@UsuarioNuevo = 11111111-2222-3333-4444-555555555555
+# Productos de los datos semilla de Products.API
+@Notebook = 3fa85f64-5717-4562-b3fc-2c963f66afa6
+@Auriculares = aaaabbbb-cccc-dddd-eeee-ffff00001111
+@Taladro = b2c3d4e5-0000-0000-0000-000000000005
 
-# Los requests de éxito y de error de cada endpoint se agregan junto con los endpoints.
+# Requiere Products.API levantado en el puerto 5001 para agregar o actualizar productos.
+
+### ---------- Éxito ----------
+
+### Obtener el carrito de los datos semilla → 200
+GET {{HostAddress}}/api/cart/{{UsuarioSemilla}}
+Accept: application/json
+
+### Agregar un producto (crea el carrito si no existe) → 200
+POST {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items
+Content-Type: application/json
+
+{
+  "productoId": "{{Notebook}}",
+  "cantidad": 2
+}
+
+### Agregar el mismo producto otra vez: se suma la cantidad (D-13) → 200
+POST {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items
+Content-Type: application/json
+
+{
+  "productoId": "{{Notebook}}",
+  "cantidad": 1
+}
+
+### Cambiar la cantidad de un producto → 200
+PUT {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items/{{Notebook}}
+Content-Type: application/json
+
+{
+  "cantidad": 4
+}
+
+### Quitar un producto → 204
+DELETE {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items/{{Notebook}}
+
+### Vaciar el carrito (lo elimina, D-27) → 204
+DELETE {{HostAddress}}/api/cart/{{UsuarioNuevo}}
+
+### ---------- Errores ----------
+
+### CRT-001: usuario sin carrito → 404
+GET {{HostAddress}}/api/cart/99999999-9999-9999-9999-999999999999
+
+### CRT-002: producto inexistente en Products.API → 404
+POST {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items
+Content-Type: application/json
+
+{
+  "productoId": "00000000-0000-0000-0000-000000000001",
+  "cantidad": 1
+}
+
+### CRT-002: producto que no está en el carrito (D-26) → 404
+PUT {{HostAddress}}/api/cart/{{UsuarioSemilla}}/items/{{Taladro}}
+Content-Type: application/json
+
+{
+  "cantidad": 1
+}
+
+### CRT-003: stock insuficiente (el taladro tiene stock 2) → 422
+POST {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items
+Content-Type: application/json
+
+{
+  "productoId": "{{Taladro}}",
+  "cantidad": 5
+}
+
+### CRT-004: cantidad menor o igual a cero → 400
+POST {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items
+Content-Type: application/json
+
+{
+  "productoId": "{{Notebook}}",
+  "cantidad": 0
+}
+
+### CRT-005: con Products.API detenido, agregar un producto → 500
+POST {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items
+Content-Type: application/json
+
+{
+  "productoId": "{{Auriculares}}",
+  "cantidad": 1
+}
