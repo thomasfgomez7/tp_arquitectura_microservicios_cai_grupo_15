@@ -195,7 +195,7 @@ Clases concretas: `UsersController`, `User`, `RegisterUserRequest`, `LoginReques
 | `ICartRepository` | `InMemoryCartRepository` → adaptador de la librería de la cátedra | `Repositories/` | Guardar y consultar carritos | Singleton | 6 |
 | `IProductsClient` | `ProductsClient` | `Clients/` | Consultar existencia y stock en Products.API | Typed client | 6 |
 
-Clases concretas: `CartController`, `Cart`, `CartItem`, `AddCartItemRequest`, `UpdateCartItemRequest`, `CartResponse`, `CartItemResponse`, `ProductInfo`.
+Clases concretas: `CartController`, `ShoppingCart` (no `Cart`: ese nombre choca con el namespace raíz `Cart.API`), `CartItem`, `AddCartItemRequest`, `UpdateCartItemRequest`, `CartResponse`, `CartItemResponse`, `ProductInfo`.
 
 #### Orders.API — Juan Pablo
 
@@ -407,6 +407,10 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-22 | Swagger UI queda habilitado en todos los entornos, en `/swagger`. | El enunciado lo pide en cada microservicio y la demo se hace desde ahí. En un sistema real se restringiría a desarrollo. |
 | D-23 | Los errores se documentan con `[ProducesError(status, código, mensaje)]`, que hereda de `ProducesResponseType`, y un `IOperationFilter` arma el ejemplo con `ErrorResponseWriter.Build`. No se usa `Swashbuckle.AspNetCore.Filters`. | Ese paquete no tiene versión para Swashbuckle 10. Además, el ejemplo de Swagger sale del mismo código que arma las respuestas reales. |
 | D-24 | `/health/live` solo verifica que el proceso responda; `/health/ready` verifica la persistencia (y desde la Etapa 9, los servicios de los que depende). Healthy y Degraded responden 200; Unhealthy, 503. | Separar "vivo" de "listo para atender" es la convención de los health checks: un servicio puede estar vivo con una dependencia caída. |
+| D-25 | En Cart, todo dato inválido (cantidad ≤ 0, producto o cantidad faltante, JSON mal formado) responde 400 con CRT-004, y el `errorMessage` lista los problemas. | CRT-004 es el único código 400 del catálogo de Cart. |
+| D-26 | `PUT` y `DELETE` de un item que no está en el carrito responden 404 con CRT-002 y el mensaje "El producto no se encuentra en el carrito.". | El catálogo no tiene un código para ese caso; CRT-002 es el "producto no encontrado" de Cart. |
+| D-27 | `DELETE /api/cart/{userId}` (vaciar) elimina el carrito: después, `GET` responde CRT-001. Quitar el último item con `DELETE .../items/{productId}` deja el carrito vacío. | "Vaciar el carrito completo" deja al usuario sin carrito activo; el siguiente `POST /items` crea uno nuevo. |
+| D-28 | Si Products.API responde un error distinto de 404 o no responde, `ProductsClient` lanza una excepción y el handler global responde 500 con CRT-005. | Es una falla de infraestructura, no un dato del negocio. El catálogo de Cart no tiene un código para "servicio no disponible". |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -597,24 +601,24 @@ Transversales (Bloque 4, replicando las Etapas 3 y 4):
 Objetivo: primer servicio que consume a otro.
 
 Tests primero:
-- [ ] Agregar un producto inexistente lanza CRT-002; sin stock suficiente, CRT-003; cantidad ≤ 0, CRT-004.
-- [ ] Operar sobre un usuario sin carrito lanza CRT-001.
-- [ ] Agregar un producto que ya está en el carrito suma la cantidad (D-13).
-- [ ] Actualizar cantidad, quitar un producto y vaciar el carrito.
-- [ ] `ProductsClient` (con un `HttpMessageHandler` falso): 200 devuelve el producto, 404 devuelve "no existe", un error o timeout se traduce en CRT-005.
+- [x] Agregar un producto inexistente lanza CRT-002; sin stock suficiente, CRT-003. (Cantidad ≤ 0 → CRT-004 se valida con Data Annotations: va en los tests de integración.)
+- [x] Operar sobre un usuario sin carrito lanza CRT-001.
+- [x] Agregar un producto que ya está en el carrito suma la cantidad (D-13).
+- [x] Actualizar cantidad, quitar un producto y vaciar el carrito.
+- [x] `ProductsClient` (con un `HttpMessageHandler` falso): 200 devuelve el producto, 404 devuelve "no existe", un error o timeout lanza una excepción que termina en CRT-005 (D-28).
 - [ ] Contrato de errores completo (CRT-001 a CRT-005) en tests de integración.
 
 Lógica de negocio:
 
 Clases concretas:
-- [ ] `Cart`, `CartItem` (Models) y `AddCartItemRequest`, `UpdateCartItemRequest`, `CartResponse`, `CartItemResponse` (DTOs).
-- [ ] `ProductInfo` (`Clients/`): datos del producto que devuelve Products.API.
-- [ ] `ErrorCodes` (`CRT_001` … `CRT_005`) y excepciones.
+- [x] `ShoppingCart`, `CartItem` (Models) y `AddCartItemRequest`, `UpdateCartItemRequest`, `CartResponse`, `CartItemResponse` (DTOs).
+- [x] `ProductInfo` (`Clients/`): datos del producto que devuelve Products.API.
+- [x] `ErrorCodes` (`CRT_001` … `CRT_005`) y excepciones.
 
 Interfaces → implementaciones:
-- [ ] `ICartRepository` → `InMemoryCartRepository`.
-- [ ] `IProductsClient` → `ProductsClient`: typed client con `IHttpClientFactory`, que revisa el status antes de leer el body.
-- [ ] `ICartService` → `CartService`. El carrito se crea con el primer `POST /items`.
+- [x] `ICartRepository` → `InMemoryCartRepository`.
+- [x] `IProductsClient` → `ProductsClient`: typed client con `IHttpClientFactory`, que revisa el status antes de leer el body.
+- [x] `ICartService` → `CartService`. El carrito se crea con el primer `POST /items`.
 
 Capa HTTP y transversales (replicando la plantilla):
 - [ ] `CartController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
