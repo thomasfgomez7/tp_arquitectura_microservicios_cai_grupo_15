@@ -1,6 +1,6 @@
 # Arquitectura — E-Commerce con microservicios
 
-Diagramas de apoyo para el [plan de desarrollo](plan-de-desarrollo.md). GitHub los dibuja automáticamente (Mermaid); en VS Code o Rider se ven con una extensión de Mermaid.
+Diagramas de apoyo para el [plan de desarrollo](../planificacion/plan-de-desarrollo.md). GitHub los dibuja automáticamente (Mermaid); en VS Code o Rider se ven con una extensión de Mermaid.
 
 ---
 
@@ -277,14 +277,156 @@ Si el producto no existiera, el paso 4 devolvería `null`, el servicio lanzaría
 
 ---
 
-## 5. Cómo se replica en el resto de los servicios
+## 5. Cart.API: un servicio que consume a otro
+
+Cart.API repite la plantilla de Products y suma la primera **comunicación entre servicios**: para agregar un producto, consulta su existencia y su stock en Products.API.
+
+### 5.1 Diagrama de clases
+
+`CartService` depende de `IProductsClient`, no de HTTP. `ProductsClient` recibe un `HttpClient` ya configurado por `IHttpClientFactory` con la URL de `appsettings.json`. En los tests de integración, `FakeProductsClient` reemplaza al cliente real.
+
+```mermaid
+classDiagram
+    direction TB
+
+    class CartController {
+        -ICartService cartService
+        +Get(userId) 200 / 404
+        +AddItem(userId, request) 200 / 400 / 404 / 422
+        +UpdateItem(userId, productId, request) 200 / 400 / 404 / 422
+        +RemoveItem(userId, productId) 204 / 404
+        +Clear(userId) 204 / 404
+    }
+
+    class ICartService {
+        <<interface>>
+        +GetAsync(usuarioId, ct) CartResponse
+        +AddItemAsync(usuarioId, AddCartItemRequest, ct) CartResponse
+        +UpdateItemAsync(usuarioId, productoId, UpdateCartItemRequest, ct) CartResponse
+        +RemoveItemAsync(usuarioId, productoId, ct)
+        +ClearAsync(usuarioId, ct)
+    }
+
+    class CartService {
+        -ICartRepository repository
+        -IProductsClient productsClient
+        -TimeProvider timeProvider
+        -EnsureStockAsync(productoId, cantidad, ct)
+    }
+
+    class ICartRepository {
+        <<interface>>
+        +GetByUserIdAsync(usuarioId, ct) ShoppingCart?
+        +SaveAsync(ShoppingCart, ct)
+        +DeleteAsync(usuarioId, ct)
+    }
+
+    class InMemoryCartRepository {
+        -ConcurrentDictionary~Guid, ShoppingCart~ carts
+    }
+
+    class IProductsClient {
+        <<interface>>
+        +GetProductAsync(productId, ct) ProductInfo?
+    }
+
+    class ProductsClient {
+        -HttpClient httpClient
+        GET api/products/id
+    }
+
+    class FakeProductsClient {
+        catálogo fijo (solo en tests)
+    }
+
+    class IHttpClientFactory {
+        <<interface, .NET>>
+    }
+
+    class ShoppingCart {
+        +Guid UsuarioId
+        +List~CartItem~ Items
+        +DateTime FechaActualizacion
+        +FindItem(productoId) CartItem?
+        +QuantityAfterAdding(productoId, cantidad) int
+        +AddItem(productoId, cantidad)
+        +RemoveItem(productoId)
+    }
+
+    class CartItem {
+        +Guid ProductoId
+        +int Cantidad
+    }
+
+    class ProductInfo {
+        <<record>>
+        +Guid Id
+        +string Nombre
+        +decimal Precio
+        +int Stock
+    }
+
+    CartController ..> ICartService
+    CartService ..|> ICartService
+    CartService ..> ICartRepository
+    CartService ..> IProductsClient
+    InMemoryCartRepository ..|> ICartRepository
+    ProductsClient ..|> IProductsClient
+    FakeProductsClient ..|> IProductsClient
+    IHttpClientFactory ..> ProductsClient : crea con BaseUrl
+    ICartRepository ..> ShoppingCart : persiste
+    ShoppingCart *-- CartItem
+    IProductsClient ..> ProductInfo : devuelve
+```
+
+### 5.2 Agregar un producto al carrito
+
+`POST /api/cart/{userId}/items` con stock insuficiente (CRT-003). Las líneas punteadas a la derecha son la llamada HTTP real entre los dos servicios.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Cliente
+    participant Ctrl as CartController
+    participant Svc as CartService
+    participant Repo as ICartRepository
+    participant PC as ProductsClient
+    participant P as Products.API
+
+    C->>Ctrl: POST /api/cart/{userId}/items<br/>{ productoId, cantidad: 5 }
+    Ctrl->>Svc: AddItemAsync(userId, request)
+    Svc->>Repo: GetByUserIdAsync(userId)
+    Repo-->>Svc: carrito (o null: se crea uno nuevo)
+    Note over Svc: cantidad total = la que ya había + 5 (D-13)
+    Svc->>PC: GetProductAsync(productoId)
+    PC->>P: GET /api/products/{productoId}
+    P-->>PC: 200 { stock: 2, ... }
+    PC-->>Svc: ProductInfo
+    Svc--)Ctrl: throw BusinessRuleException(CRT-003, 422)
+    Note over Ctrl: sin try/catch, la excepción sigue hasta UseExceptionHandler
+    Ctrl-->>C: 422 { errorCode: "CRT-003", errorMessage: "Stock insuficiente. Disponible: 2, solicitado: 5." }
+```
+
+Cómo reacciona según lo que responde Products.API:
+
+| Products.API responde | `ProductsClient` devuelve | Cart responde |
+|---|---|---|
+| 200 con stock suficiente | `ProductInfo` | 200 con el carrito actualizado |
+| 200 con stock insuficiente | `ProductInfo` | 422, CRT-003 |
+| 404 | `null` | 404, CRT-002 |
+| 500, 503 o no responde | lanza una excepción | 500, CRT-005 (D-28) |
+
+---
+
+## 6. Cómo se replica en el resto de los servicios
 
 | Pieza | Products | Users | Cart | Orders | Notifications |
 |---|---|---|---|---|---|
 | Service | `IProductService` → `ProductService` | `IUserService` → `UserService` | `ICartService` → `CartService` | `IOrderService` → `OrderService` | `INotificationService` → `NotificationService` |
 | Repository | `IProductRepository` → `InMemoryProductRepository` | `IUserRepository` → `InMemoryUserRepository` | `ICartRepository` → `InMemoryCartRepository` | `IOrderRepository` → `InMemoryOrderRepository` | `INotificationRepository` → `InMemoryNotificationRepository` |
 | Clients | `IOrdersClient` | — | `IProductsClient` | `IUsersClient`, `IProductsClient` | `IUsersClient` |
-| Regla propia | — | `AccountLockoutPolicy` | — | `OrderStatusTransitions` | `INotificationSender` → `SimulatedNotificationSender` |
+| Regla propia | — | `AccountLockoutPolicy` | `ShoppingCart` (operaciones sobre items) | `OrderStatusTransitions` | `INotificationSender` → `SimulatedNotificationSender` |
 | Códigos | PRD-001…005 | USR-001…007 | CRT-001…005 | ORD-001…007 | NTF-001…004 |
+| Estado (01/10) | ✅ Completo | 🟡 En curso | ✅ Completo | ⬜ Pendiente | 🟡 En curso |
 
 El detalle completo (carpetas, ciclos de vida y etapa de cada pieza) está en la sección 2.3 del plan.

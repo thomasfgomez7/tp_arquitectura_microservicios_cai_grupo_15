@@ -4,7 +4,7 @@ Trabajo práctico de Construcción de Aplicaciones Informáticas — Grupo 15.
 
 Integrantes: **Thomas** y **Juan Pablo**.
 
-Consignas del trabajo: [`TP_Microservicios_ECommerce_v7.md`](TP_Microservicios_ECommerce_v7.md) (versión en Markdown del [`.docx` original](TP_Microservicios_ECommerce_v7.docx) de la cátedra). Las referencias a "el enunciado" en este documento remiten a ese archivo.
+Consignas del trabajo: [`TP_Microservicios_ECommerce_v7.md`](../consignas/TP_Microservicios_ECommerce_v7.md) (versión en Markdown del [`.docx` original](../consignas/TP_Microservicios_ECommerce_v7.docx) de la cátedra). Las referencias a "el enunciado" en este documento remiten a ese archivo.
 
 Este documento es la guía de desarrollo del equipo: describe las decisiones tomadas, la forma de trabajo, el reparto de tareas para avanzar en paralelo y las etapas con sus tareas. Las casillas se marcan a medida que avanzamos.
 
@@ -34,6 +34,16 @@ Aspectos transversales en **todos** los servicios: contrato de errores con `erro
 | Cart.API | http://localhost:5004 |
 | Notifications.API | http://localhost:5005 |
 
+### Estado actual (01/10/2026)
+
+| Servicio | Responsable | Estado | Tests |
+|---|---|---|---|
+| Products.API | Thomas | ✅ Completo (Etapas 1–4). Falta la integración real con Orders (Etapa 9). | 71 |
+| Cart.API | Thomas | ✅ Completo (Etapa 6). Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
+| Users.API | Juan Pablo | 🟡 Lógica y controller. Bloqueantes abiertos de la revisión: `GET /api/users/{id}` y USR-007, registro de dependencias. Falta replicar la plantilla. | 5 |
+| Notifications.API | Juan Pablo | 🟡 Lógica y controller. Bloqueante abierto: repositorio Scoped. Falta replicar la plantilla. | 2 |
+| Orders.API | Juan Pablo | ⬜ Esqueleto (Bloque 5). | 1 |
+
 ---
 
 ## 2. Estructura objetivo
@@ -57,6 +67,12 @@ ECommerce.slnx
 │   ├── Cart.API.Tests/
 │   └── Notifications.API.Tests/
 ├── docs/
+│   ├── README.md                 # índice de la documentación
+│   ├── consignas/                # enunciado de la cátedra (.docx original y versión .md)
+│   ├── planificacion/            # este plan
+│   ├── arquitectura/             # diagramas del sistema, de clases y de secuencia
+│   ├── repasos/                  # repaso general + un repaso por API (repaso-<servicio>-api.md)
+│   └── capturas/                 # capturas de Swagger para el entregable (Etapa 10)
 └── README.md
 ```
 
@@ -240,12 +256,12 @@ Clases concretas: `NotificationsController`, `Notification`, `NotificationType` 
 
 ### Hitos (PR `develop` → `main`)
 
-| Hito | Al terminar | Resultado |
-|---|---|---|
-| H1 | Bloque 1 | Solución, proyectos y tests compilando |
-| H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores |
-| H3 | Bloque 5 | Los cinco servicios funcionando |
-| H4 | Bloque 7 | Integración entre servicios, documentación y entrega |
+| Hito | Al terminar | Resultado | Estado |
+|---|---|---|---|
+| H1 | Bloque 1 | Solución, proyectos y tests compilando | ✅ PR #1 (27/09) |
+| H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | 🟡 Products listo; falta Users |
+| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Products y Cart listos |
+| H4 | Bloque 7 | Integración entre servicios, documentación y entrega | ⬜ |
 
 Los bloques se describen en la sección 4.2.
 
@@ -277,7 +293,7 @@ Herramientas: xUnit, `Microsoft.AspNetCore.Mvc.Testing` (WebApplicationFactory),
 - **Sin código compartido entre microservicios:** cada servicio es autónomo; la plantilla de Products.API se replica.
 - **Fechas con `TimeProvider`** (incluido en .NET) para poder testear lo que depende de la hora actual.
 
-Los diagramas de arquitectura y de clases están en [`docs/arquitectura.md`](arquitectura.md). Los repasos están en [`docs/repaso-general.md`](repaso-general.md) (vista de conjunto del proyecto) y [`docs/repaso-products-api.md`](repaso-products-api.md) (cómo se construyó Products.API, con el porqué de cada decisión).
+Los diagramas de arquitectura y de clases están en [`docs/arquitectura/arquitectura.md`](../arquitectura/arquitectura.md). Los repasos están en [`docs/repasos/`](../repasos/): uno general ([`repaso-general.md`](../repasos/repaso-general.md), vista de conjunto del proyecto) y uno por API que explica cómo se construyó, con el porqué de cada decisión ([Products](../repasos/repaso-products-api.md), [Cart](../repasos/repaso-cart-api.md)).
 
 ### Convenciones de código
 
@@ -295,7 +311,11 @@ Reglas concretas que surgieron de las revisiones. La referencia de cómo aplicar
 | Repositorios en memoria | Registrados como **Singleton**, con `ConcurrentDictionary`, devolviendo listas ya materializadas (`ToList()`). `UpdateAsync` guarda de verdad el objeto. | Scoped pierde los datos entre requests; `List<T>` falla con requests simultáneos. |
 | Inyección de dependencias | Todo se registra en `Infrastructure/ServiceCollectionExtensions.cs` (`AddXxxServices()`), llamado desde `Program.cs`. Cada API tiene un `DependencyInjectionTests`. | Los tests unitarios crean el servicio a mano y no detectan registros faltantes. |
 | Tests | `Unit/Services/`, `Unit/Repositories/`, `Integration/`. Nombre `Metodo_Escenario_ResultadoEsperado`. Se verifica `ErrorCode`, `StatusCode` y `Message` de cada excepción. | Mismo formato en todos los servicios; se prueba el contrato completo. |
+| Clientes HTTP | Typed client registrado con `AddHttpClient<IXxxClient, XxxClient>`, con la URL en `appsettings` (`Services:XxxApi:BaseUrl`). Se revisa el status **antes** de leer el body: 404 → `null`; otro error → excepción (termina en el 500 del servicio). Se testea con un `HttpMessageHandler` falso. | `IHttpClientFactory` recicla las conexiones (sección 7 del enunciado). Un 404 trae el JSON de error del otro servicio, no el dato esperado. |
+| Tests con otros servicios | La fábrica de tests de integración (`XxxApiFactory`) reemplaza los clientes HTTP por un fake con datos fijos. `DependencyInjectionTests` usa la configuración real, sin reemplazos. | Los tests de un servicio no dependen de que los otros estén levantados ni se rompen por sus bugs. |
+| Nombres de clases | Ninguna clase se llama igual que el namespace raíz del proyecto (por eso el carrito es `ShoppingCart` y no `Cart`). | C# confunde el tipo con el namespace (error CS0118). |
 | Contratos entre servicios | Los endpoints y códigos de la sección 4.4 (y 5.1) no se quitan ni se cambian sin acordarlo y actualizar el plan. | El servicio que rompe el contrato sigue en verde; el que falla es el otro. |
+| Documentación por API | Al terminar cada API, su responsable escribe `docs/repasos/repaso-<servicio>-api.md` (como [Products](../repasos/repaso-products-api.md) y [Cart](../repasos/repaso-cart-api.md)): qué se construyó, las decisiones con su porqué, cómo se testeó, el recorrido de un request, el mapa de archivos y preguntas de la defensa. También se actualizan el repaso general y el estado de la sección 1. | El enunciado exige que cada integrante pueda explicar cualquier parte del código; el repaso es la guía para estudiar el servicio del otro. |
 | Commits | Cada commit compila, pasa los tests y no incluye archivos vacíos ni código comentado. | Todo lo que está en `develop` tiene que funcionar. |
 
 ---
@@ -336,7 +356,7 @@ Cada bloque se trabaja en paralelo. Al final de cada bloque hay un punto de sinc
 
 - Cada uno trabaja solo en las carpetas de sus servicios (`src/<Servicio>.API` y `tests/<Servicio>.API.Tests`). Si hace falta tocar algo del otro, se avisa antes.
 - `ECommerce.slnx` se crea en la Etapa 0 con todos los proyectos, para que nadie tenga que modificarlo después.
-- Archivos compartidos (`README.md`, `.gitignore`, `docs/`): se avisa antes de modificarlos y se hacen commits chicos.
+- Archivos compartidos (`README.md`, `.gitignore`, `docs/`): se avisa antes de modificarlos y se hacen commits chicos. Excepción: cada uno escribe el repaso de sus propias APIs en `docs/repasos/`.
 - `git pull --rebase` antes de empezar a trabajar y antes de cada push.
 - Commits chicos y push frecuente (como mínimo al terminar cada sesión de trabajo), siempre con build y tests en verde.
 - Si algo rompe el build en `develop`, se avisa enseguida y quien lo rompió lo arregla antes de seguir.
@@ -367,6 +387,14 @@ Para que cada uno pueda avanzar sin esperar al otro, estos contratos se fijan en
 **Header:** `X-Correlation-Id` en todas las llamadas entre servicios.
 
 **Puertos:** los de la sección 1.
+
+**Configuración de las URLs:** cada servicio que consume a otro lee su URL de `appsettings.json`, con la clave `Services:<Servicio>Api:BaseUrl`:
+
+| Clave | Valor | La usan |
+|---|---|---|
+| `Services:ProductsApi:BaseUrl` | `http://localhost:5001/` | Cart (en uso), Orders |
+| `Services:UsersApi:BaseUrl` | `http://localhost:5002/` | Orders, Notifications |
+| `Services:OrdersApi:BaseUrl` | `http://localhost:5003/` | Products (Etapa 9) |
 
 ### 4.5 Revisión cruzada
 
@@ -589,6 +617,7 @@ Capa HTTP y contrato de errores (Bloque 3, replicando la Etapa 2):
 - [ ] `UsersController` con `register`, `login` y `GET /api/users/{id}`.
 - [ ] `ErrorResponseWriter` y los cuatro `IExceptionHandler`; validación automática con USR-002.
 - [ ] `Users.API.http` con requests de éxito y de error.
+- [ ] `docs/repasos/repaso-users-api.md` (convención "Documentación por API").
 
 Transversales (Bloque 4, replicando las Etapas 3 y 4):
 - [ ] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, `CorrelationIdMiddleware`, `RequestLoggingMiddleware` y Serilog.
@@ -624,6 +653,7 @@ Capa HTTP y transversales (replicando la plantilla):
 - [x] `CartController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
 - [x] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
 - [x] `Cart.API.http` con requests de éxito y de error.
+- [x] `docs/repasos/repaso-cart-api.md`.
 
 ### Etapa 7 — Orders.API
 
@@ -658,6 +688,7 @@ Capa HTTP y transversales (replicando la plantilla):
 - [ ] `OrdersController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
 - [ ] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
 - [ ] `Orders.API.http` con requests de éxito y de error.
+- [ ] `docs/repasos/repaso-orders-api.md` (convención "Documentación por API").
 
 ### Etapa 8 — Notifications.API
 
@@ -689,6 +720,7 @@ Capa HTTP y transversales (Bloque 4, replicando la plantilla):
 - [ ] `NotificationsController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
 - [ ] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
 - [ ] `Notifications.API.http` con requests de éxito y de error.
+- [ ] `docs/repasos/repaso-notifications-api.md` (convención "Documentación por API").
 
 ### Etapa 9 — Integración entre servicios
 
@@ -721,7 +753,7 @@ Thomas:
 - [ ] README: cómo ejecutar cada servicio, tabla de puertos y descripción de cada servicio.
 - [ ] Diagrama de arquitectura (ASCII o imagen) en el README.
 - [ ] Script para levantar los cinco servicios juntos.
-- [ ] Capturas de Swagger UI con ejemplos de error (`errorCode` y `errorMessage`) en `docs/`.
+- [ ] Capturas de Swagger UI con ejemplos de error (`errorCode` y `errorMessage`) en `docs/capturas/`.
 
 Juan Pablo:
 - [ ] Tabla completa de códigos de error en el README, incluyendo USR-007.

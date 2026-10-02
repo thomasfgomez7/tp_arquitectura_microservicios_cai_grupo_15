@@ -1,14 +1,14 @@
 # Repaso general del proyecto
 
-Explicación de todo lo hecho en el repositorio hasta el cierre de Products.API (30/09/2026): de dónde partimos, cómo planificamos, cómo nos organizamos, qué arquitectura elegimos y por qué, qué aprendimos de las revisiones de código y en qué estado está cada servicio.
+Explicación de todo lo hecho en el repositorio hasta el cierre de Cart.API (01/10/2026): de dónde partimos, cómo planificamos, cómo nos organizamos, qué arquitectura elegimos y por qué, qué aprendimos de las revisiones de código y en qué estado está cada servicio.
 
-Este documento da la **vista de conjunto**. El detalle técnico de cómo se construyó la plantilla (controllers, manejo de errores, logs, Swagger y health checks) está en [repaso-products-api.md](repaso-products-api.md).
+Este documento da la **vista de conjunto**. El detalle técnico de cómo se construyó la plantilla (controllers, manejo de errores, logs, Swagger y health checks) está en [repaso-products-api.md](repaso-products-api.md); lo propio de cada API, en su repaso: [Products](repaso-products-api.md) y [Cart](repaso-cart-api.md).
 
 | Documento | Para qué sirve |
 |---|---|
-| [TP_Microservicios_ECommerce_v7.md](TP_Microservicios_ECommerce_v7.md) | Las consignas de la cátedra (versión Markdown del `.docx`) |
-| [plan-de-desarrollo.md](plan-de-desarrollo.md) | La guía de trabajo: decisiones, reparto, convenciones y etapas con sus tareas |
-| [arquitectura.md](arquitectura.md) | Diagramas del sistema y de clases |
+| [TP_Microservicios_ECommerce_v7.md](../consignas/TP_Microservicios_ECommerce_v7.md) | Las consignas de la cátedra (versión Markdown del `.docx`) |
+| [plan-de-desarrollo.md](../planificacion/plan-de-desarrollo.md) | La guía de trabajo: decisiones, reparto, convenciones y etapas con sus tareas |
+| [arquitectura.md](../arquitectura/arquitectura.md) | Diagramas del sistema y de clases |
 | [repaso-products-api.md](repaso-products-api.md) | Cómo se construyó Products.API, decisión por decisión |
 | **Este documento** | La vista de conjunto del proyecto |
 
@@ -23,12 +23,13 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 5. [La arquitectura del sistema](#5-la-arquitectura-del-sistema)
 6. [La estructura del repositorio](#6-la-estructura-del-repositorio)
 7. [La plantilla común de cada API](#7-la-plantilla-común-de-cada-api)
-8. [La documentación del repositorio](#8-la-documentación-del-repositorio)
-9. [Revisiones de código: qué aprendimos](#9-revisiones-de-código-qué-aprendimos)
-10. [Estado actual de cada servicio](#10-estado-actual-de-cada-servicio)
-11. [Las decisiones, agrupadas por tema](#11-las-decisiones-agrupadas-por-tema)
-12. [Próximos pasos](#12-próximos-pasos)
-13. [Preguntas generales de la defensa](#13-preguntas-generales-de-la-defensa)
+8. [Cart.API: el primer servicio que consume a otro](#8-cartapi-el-primer-servicio-que-consume-a-otro)
+9. [La documentación del repositorio](#9-la-documentación-del-repositorio)
+10. [Revisiones de código: qué aprendimos](#10-revisiones-de-código-qué-aprendimos)
+11. [Estado actual de cada servicio](#11-estado-actual-de-cada-servicio)
+12. [Las decisiones, agrupadas por tema](#12-las-decisiones-agrupadas-por-tema)
+13. [Próximos pasos](#13-próximos-pasos)
+14. [Preguntas generales de la defensa](#14-preguntas-generales-de-la-defensa)
 
 ---
 
@@ -51,8 +52,11 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 | 30/09 | Thomas | **Etapa 2:** endpoints y contrato de errores | `01236c2` |
 | 30/09 | Thomas | **Etapa 3:** Serilog y Correlation ID | `6906025` |
 | 30/09 | Thomas | **Etapa 4:** Swagger y health checks. Products.API completo | `f2b4118` |
+| 30/09 | Thomas | Repasos general y de Products.API | `482fd1c` |
+| 01/10 | Thomas | **Etapa 6 (parte 1):** lógica del carrito y `ProductsClient`, el primer cliente HTTP entre servicios | `0405e34` |
+| 01/10 | Thomas | **Etapa 6 (parte 2):** endpoints de Cart y plantilla replicada. Cart.API completo | `e4a56ea` |
 
-En dos semanas se pasó de una plantilla vacía a un servicio completo con 71 tests, y la base de los otros cuatro.
+En dos semanas se pasó de una plantilla vacía a dos servicios completos (Products y Cart, 161 tests entre los dos) que se comunican entre sí, y la base de los otros tres.
 
 ---
 
@@ -85,7 +89,7 @@ Antes de escribir código, leímos el enunciado buscando qué **no** estaba defi
 
 ### 3.1 Un plan escrito y versionado
 
-Todo el trabajo sigue [plan-de-desarrollo.md](plan-de-desarrollo.md), que está en el repo y se actualiza a medida que avanzamos (las casillas se marcan al terminar cada tarea). Tiene seis partes:
+Todo el trabajo sigue [plan-de-desarrollo.md](../planificacion/plan-de-desarrollo.md), que está en el repo y se actualiza a medida que avanzamos (las casillas se marcan al terminar cada tarea). Tiene seis partes:
 
 1. **Resumen del sistema:** servicios, responsables y puertos.
 2. **Estructura:** carpetas, y qué clases llevan interfaz y cuáles no.
@@ -124,8 +128,8 @@ Al cerrar cada hito se abre un PR de `develop` a `main`:
 | Hito | Contenido | Estado |
 |---|---|---|
 | H1 | Solución compilando | ✅ PR #1 mergeado (27/09) |
-| H2 | Products completo y Users con su contrato de errores | ⏳ Products listo; falta la parte de Users |
-| H3 | Los cinco servicios funcionando | Pendiente |
+| H2 | Products completo y Users con su contrato de errores | 🟡 Products listo; falta la parte de Users |
+| H3 | Los cinco servicios funcionando | 🟡 Products y Cart listos |
 | H4 | Integración, documentación y entrega | Pendiente |
 
 ### 3.4 TDD como método
@@ -169,9 +173,9 @@ Con esto, Thomas puede programar el cliente de Orders y Juan Pablo los clientes 
 
 ### 4.5 Integración continua
 
-GitHub Actions ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) compila la solución y corre **todos** los tests en cada push a `develop` o `main` y en cada PR a `main`. La regla "nunca se mergea código que no compile" no depende de que alguien se acuerde de verificarlo.
+GitHub Actions ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)) compila la solución y corre **todos** los tests en cada push a `develop` o `main` y en cada PR a `main`. La regla "nunca se mergea código que no compile" no depende de que alguien se acuerde de verificarlo.
 
-**Una limitación importante:** el CI solo ve lo que se compila. Un archivo sin extensión `.cs` no entra en la compilación, así que el CI sigue en verde aunque el código tenga errores. Esto pasó de verdad (sección 9.1).
+**Una limitación importante:** el CI solo ve lo que se compila. Un archivo sin extensión `.cs` no entra en la compilación, así que el CI sigue en verde aunque el código tenga errores. Esto pasó de verdad (sección 10.1).
 
 ---
 
@@ -221,9 +225,11 @@ Orders llama a Products (precio y stock) y Products llama a Orders (PRD-004). Es
 
 Conviene tenerla clara para la defensa, porque es una pregunta típica.
 
-### 5.4 Comunicación entre servicios (Etapa 9)
+### 5.4 Comunicación entre servicios
 
-Las llamadas HTTP se van a hacer con `IHttpClientFactory`, siempre detrás de una interfaz (`IProductsClient`, etc.), y llevando el `X-Correlation-Id` del request original. Así, un request que pasa por Orders, Users y Products deja en los logs de los tres el mismo ID.
+Las llamadas HTTP se hacen con `IHttpClientFactory`, siempre detrás de una interfaz (`IProductsClient`, `IUsersClient`, `IOrdersClient`), con la URL de cada servicio en `appsettings.json`. Cart → Products ya funciona así (sección 8).
+
+Falta, para la Etapa 9, que cada llamada lleve el `X-Correlation-Id` del request original. Así, un request que pasa por Orders, Users y Products dejaría en los logs de los tres el mismo ID.
 
 ---
 
@@ -268,28 +274,48 @@ Todas las APIs tienen las mismas capas. El detalle de cada una, con su porqué, 
 | Swashbuckle + `[ProducesError]` | Documentación con ejemplos de éxito y de error | 5.1 Swagger |
 | `/health`, `/health/ready`, `/health/live` | Estado del servicio | 5.4 Health Checks |
 
+**La plantilla ya se replicó una vez, en Cart.API**, y sirvió: la parte transversal (manejo de errores, logs, Correlation ID, Swagger y health checks) se copió de Products y solo hubo que adaptar los códigos de error y dos detalles ([repaso de Cart, sección 5.2](repaso-cart-api.md#52-replicar-la-plantilla)).
+
 **El criterio para usar interfaces** (D-15, sección 2.3 del plan): llevan interfaz los servicios, la persistencia, los clientes de otros servicios y lo que depende del entorno. No llevan interfaz los modelos, los DTOs, las excepciones, los controllers ni las reglas puras. Una interfaz tiene que aportar algo: poder reemplazar la pieza en un test o cambiar su implementación.
 
 ---
 
-## 8. La documentación del repositorio
+## 8. Cart.API: el primer servicio que consume a otro
+
+Cart.API es el segundo servicio terminado y el primero que **depende de otro**: para agregar un producto al carrito, le pregunta a Products.API por HTTP si existe y cuánto stock tiene. El detalle completo está en su repaso: **[repaso-cart-api.md](repaso-cart-api.md)**. Lo importante, a nivel proyecto:
+
+| Tema | Qué se hizo | Más detalle |
+|---|---|---|
+| **Huecos del enunciado** | Cuatro decisiones nuevas antes de escribir tests: todo 400 usa CRT-004 (D-25), un producto que no está en el carrito responde CRT-002 (D-26), vaciar elimina el carrito (D-27) y Products caído responde CRT-005 (D-28) | [Repaso de Cart, sección 2](repaso-cart-api.md#2-antes-de-programar-los-huecos-del-enunciado) |
+| **Primer cliente HTTP** | `ProductsClient`, registrado con `IHttpClientFactory` y con la URL en `appsettings.json`. Revisa el status antes de leer el body: un 404 es un dato ("no existe") y un 500 es una falla | [Repaso de Cart, sección 4](repaso-cart-api.md#4-productsclient-hablar-con-otro-servicio) |
+| **Tests con una dependencia** | Tres niveles: el cliente con un handler HTTP falso, Cart completo con un `FakeProductsClient` y una prueba manual con los dos servicios | [Repaso de Cart, sección 6](repaso-cart-api.md#6-cómo-se-testea-un-servicio-que-depende-de-otro) |
+| **La plantilla se replicó** | La parte transversal se copió de Products y solo cambiaron los códigos de error y dos detalles. Confirma que la plantilla no depende del dominio | [Repaso de Cart, sección 5.2](repaso-cart-api.md#52-replicar-la-plantilla) |
+| **Resiliencia** | Con Products caído, Cart responde CRT-005 al agregar productos, pero sigue mostrando los carritos | [Repaso de Cart, sección 7](repaso-cart-api.md#7-la-prueba-con-los-dos-servicios-levantados) |
+| **Lo que falta** | El Correlation ID no viaja de Cart a Products: un mismo request aparece con dos IDs distintos en los logs. Lo resuelve la Etapa 9 | [Repaso de Cart, sección 10](repaso-cart-api.md#10-lo-que-falta-etapa-9) |
+
+> **Para la defensa:** "Cart consulta a Products por HTTP detrás de una interfaz. Un 404 de Products es un dato del negocio (CRT-002) y un 500 es una falla de infraestructura (CRT-005). Si Products se cae, solo fallan las operaciones que lo necesitan."
+
+---
+
+## 9. La documentación del repositorio
 
 | Documento | Cómo se armó | Por qué |
 |---|---|---|
 | **Consignas** (`.docx` + `.md`) | El `.md` se generó con un conversor propio en Python que lee el XML interno del `.docx`. Toma la fuente Courier New como señal de código para separar los bloques JSON y C#, y convierte las 47 tablas según su tipo. Se verificó palabra por palabra contra el original. | GitHub no muestra los `.docx`. En Markdown se lee, se busca y se puede enlazar a una sección. Si la cátedra publica una v8, `git diff` muestra qué cambió. |
 | **Plan de desarrollo** | Se fue completando etapa por etapa. | Es la guía del equipo; las decisiones quedan escritas. |
 | **Arquitectura** | Diagramas en Mermaid: GitHub los dibuja solos y se editan como texto. | Una imagen se desactualiza; el texto se versiona junto al código. |
-| **Repasos** | Escritos al cerrar Products. | Para entender el código en profundidad y preparar la defensa. |
+| **Repasos** (`docs/repasos/`) | Uno general y uno por API, escrito al terminarla (convención del plan). | Para entender el código en profundidad y preparar la defensa. |
+| **README** | La puerta de entrada del repo: qué es, cómo ejecutarlo, puertos, estado y enlaces a los demás documentos. La tabla de códigos de error y las decisiones se completan en la Etapa 10. | Es lo primero que ve cualquiera que abre el repositorio, incluidos los docentes. |
 
 Todos los diagramas Mermaid se verificaron dibujándolos en un navegador antes de subirlos. Así se encontraron dos problemas que en GitHub se habrían visto como errores: diagramas de clases enredados y un `;` que rompía un diagrama de secuencia.
 
 ---
 
-## 9. Revisiones de código: qué aprendimos
+## 10. Revisiones de código: qué aprendimos
 
 Revisamos el código de Juan Pablo dos veces. No fue para señalar errores, sino porque el enunciado exige que los dos entiendan todo el código, y porque los problemas que se encuentran temprano se corrigen fácil.
 
-### 9.1 Primera revisión: archivos que no compilaban
+### 10.1 Primera revisión: archivos que no compilaban
 
 **Lo que se encontró:** casi todos los archivos de Users estaban **sin extensión `.cs`** y muchos estaban vacíos. Como .NET solo compila los `.cs`, el compilador los ignoraba, y el build y el CI daban verde aunque el código tuviera errores.
 
@@ -297,7 +323,7 @@ Revisamos el código de Juan Pablo dos veces. No fue para señalar errores, sino
 
 **Lo que aprendimos:** "el CI está verde" no significa "el código funciona", si el código no entra en la compilación. Por eso se sumó la convención "revisar `git status` antes de cada commit" y crear las clases desde el editor.
 
-### 9.2 Segunda revisión: mejoró mucho, con tres bloqueantes
+### 10.2 Segunda revisión: mejoró mucho, con tres bloqueantes
 
 Juan Pablo corrigió la primera revisión: archivos con extensión, métodos `async` con `CancellationToken`, DTOs como `record`, validaciones y tests unitarios. Aparecieron tres problemas nuevos que **los tests unitarios no podían detectar**:
 
@@ -309,7 +335,7 @@ Juan Pablo corrigió la primera revisión: archivos con extensión, métodos `as
 
 También hubo observaciones importantes, no bloqueantes: el tercer intento fallido de login no coincide con D-09, la `BusinessRuleException` de Notifications no tiene `statusCode`, los repositorios usan `List<T>` (no es thread-safe), y faltan tests, datos semilla y `TimeProvider`.
 
-### 9.3 Lo que se agregó al plan a partir de las revisiones
+### 10.3 Lo que se agregó al plan a partir de las revisiones
 
 Las dos revisiones dieron origen a la sección **"Convenciones de código"** del plan: 12 reglas concretas, cada una con su porqué. Las más importantes:
 
@@ -322,14 +348,14 @@ Las dos revisiones dieron origen a la sección **"Convenciones de código"** del
 
 ---
 
-## 10. Estado actual de cada servicio
+## 11. Estado actual de cada servicio
 
 | Servicio | Responsable | Estado | Tests |
 |---|---|---|---|
-| **Products.API** | Thomas | ✅ **Completo** (Etapas 1–4). Es la plantilla. Falta solo la integración real con Orders (Etapa 9). | 71 |
+| **Products.API** | Thomas | ✅ **Completo** (Etapas 1–4). Es la plantilla. Falta la integración real con Orders (Etapa 9). | 71 |
 | **Users.API** | Juan Pablo | 🟡 Lógica de negocio y controller hechos. **Bloqueantes abiertos:** falta `GET /api/users/{id}` y USR-007, y falta registrar las dependencias. Falta replicar errores, logs, Swagger y health checks. | 5 |
 | **Notifications.API** | Juan Pablo | 🟡 Dominio, servicio y controller hechos. **Bloqueante abierto:** repositorio Scoped. Falta replicar la plantilla. | 2 |
-| **Cart.API** | Thomas | ⬜ Solo el esqueleto. Es el próximo bloque. | 1 (humo) |
+| **Cart.API** | Thomas | ✅ **Completo** (Etapa 6). Primer servicio que consume a otro. Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
 | **Orders.API** | Juan Pablo | ⬜ Solo el esqueleto (Bloque 5). | 1 (humo) |
 
 **Pendientes externos:**
@@ -339,9 +365,9 @@ Las dos revisiones dieron origen a la sección **"Convenciones de código"** del
 
 ---
 
-## 11. Las decisiones, agrupadas por tema
+## 12. Las decisiones, agrupadas por tema
 
-Las 24 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
+Las 28 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
 
 **Estructura y entorno**
 
@@ -382,6 +408,15 @@ Las 24 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 | D-18 | Detalle de los 500 según entorno | Requisito 5.2, sin stack trace |
 | D-19 | JSON inválido → un mensaje en español | Los mensajes de .NET están en inglés |
 
+**Cart.API**
+
+| # | Decisión | En una línea |
+|---|---|---|
+| D-25 | Todo 400 de Cart usa CRT-004 | Es el único código 400 del catálogo de Cart |
+| D-26 | Producto que no está en el carrito → CRT-002 | El catálogo no tiene un código para ese caso |
+| D-27 | Vaciar elimina el carrito | Deja al usuario sin carrito activo |
+| D-28 | Products caído → 500 con CRT-005 | Es una falla de infraestructura, no del negocio |
+
 **Observabilidad y documentación**
 
 | # | Decisión | En una línea |
@@ -394,7 +429,7 @@ Las 24 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 ---
 
-## 12. Próximos pasos
+## 13. Próximos pasos
 
 **Juan Pablo (cerrar el hito H2):**
 
@@ -404,15 +439,18 @@ Las 24 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 4. Definir D-09: alinear el código o actualizar el plan.
 5. Replicar en Users la capa de errores de la Etapa 2 de Products, usando las carpetas `ExceptionHandlers/` e `Infrastructure/` como referencia.
 
-**Thomas (Bloque 4):**
+**Thomas (Bloque 5, Etapa 9 en Products y Cart):**
 
-- **Cart.API:** replicar la plantilla y sumar el **primer cliente HTTP entre servicios**, `IProductsClient`, con sus tests. Es la base de la comunicación de la Etapa 9.
+1. `CorrelationIdDelegatingHandler`: que el `X-Correlation-Id` viaje en las llamadas de Cart a Products (el problema de la [sección 7 del repaso de Cart](repaso-cart-api.md#7-la-prueba-con-los-dos-servicios-levantados)).
+2. `DownstreamServiceHealthCheck`: Products en el `/health/ready` de Cart, y Orders en el de Products.
+3. Timeouts en los clientes HTTP.
+4. `OrdersClient` real para PRD-004, que reemplaza a `StubOrdersClient`. **Depende de que Juan Pablo implemente `GET /api/orders?productoId=`:** conviene coordinar con él antes de arrancar.
 
-**Después:** Orders (Juan Pablo), la integración entre servicios (Etapa 9), el README, el diagrama de arquitectura, las capturas de Swagger (Etapa 10) y el ensayo de la defensa (Etapa 11).
+**Después:** Orders (Juan Pablo), las capturas de Swagger y la parte del README que falta (Etapa 10), y el ensayo de la defensa (Etapa 11).
 
 ---
 
-## 13. Preguntas generales de la defensa
+## 14. Preguntas generales de la defensa
 
 Las preguntas específicas de Products están en su [repaso](repaso-products-api.md#9-preguntas-probables-de-la-defensa). Estas son las del proyecto en general.
 
@@ -421,6 +459,9 @@ Lo pide el enunciado, y además permite que cada servicio se desarrolle, pruebe 
 
 **¿Cómo se comunican los servicios?**
 Por HTTP, con `IHttpClientFactory`, siempre detrás de una interfaz y llevando el `X-Correlation-Id`. Ningún servicio lee los datos de otro directamente.
+
+**¿Qué pasa si se cae un servicio del que dependen?**
+Fallan solo las operaciones que lo necesitan, con el 500 del servicio y el error en el log. Por ejemplo, si Products se cae, Cart no puede agregar productos (CRT-005), pero sigue mostrando los carritos. Lo verificamos con los dos servicios levantados ([repaso de Cart, sección 7](repaso-cart-api.md#7-la-prueba-con-los-dos-servicios-levantados)).
 
 **¿Por qué cada servicio tiene su propia copia de las excepciones y los handlers?**
 Para que sean independientes (D-05). Una librería compartida obligaría a coordinar los cinco servicios ante cada cambio.

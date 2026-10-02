@@ -1,6 +1,8 @@
 # Repaso: cómo construimos Products.API
 
-Guía de estudio de todo lo hecho hasta el cierre de Products.API (Etapas 0 a 4 del [plan de desarrollo](plan-de-desarrollo.md)). Explica **qué** hace cada pieza y, sobre todo, **por qué** se decidió así. Sirve para entender el código, para replicarlo en los otros servicios y para preparar la defensa.
+Guía de estudio de todo lo hecho hasta el cierre de Products.API (Etapas 0 a 4 del [plan de desarrollo](../planificacion/plan-de-desarrollo.md)). Explica **qué** hace cada pieza y, sobre todo, **por qué** se decidió así. Sirve para entender el código, para replicarlo en los otros servicios y para preparar la defensa.
+
+> **La plantilla ya se replicó en Cart.API** (Etapa 6). Todo lo que se explica acá vale también para Cart, con las diferencias explicadas en el [repaso de Cart.API](repaso-cart-api.md#52-replicar-la-plantilla): otros códigos de error, el filtro de ejemplos de Swagger generalizado y el cliente HTTP hacia Products.
 
 Cómo leerlo:
 
@@ -9,7 +11,7 @@ Cómo leerlo:
 - La **sección 7** sigue un request real de punta a punta por todas las clases. Es la mejor forma de comprobar que se entendió todo.
 - La **sección 8** es un mapa de archivos para consultar, y la **sección 9** tiene preguntas probables de la defensa.
 
-Los diagramas de clases están en [arquitectura.md](arquitectura.md) y las consignas, en [TP_Microservicios_ECommerce_v7.md](TP_Microservicios_ECommerce_v7.md). La vista de conjunto del proyecto (planificación, trabajo en equipo, arquitectura del sistema y estado de cada servicio) está en [repaso-general.md](repaso-general.md).
+Los diagramas de clases están en [arquitectura.md](../arquitectura/arquitectura.md) y las consignas, en [TP_Microservicios_ECommerce_v7.md](../consignas/TP_Microservicios_ECommerce_v7.md). La vista de conjunto del proyecto (planificación, trabajo en equipo, arquitectura del sistema y estado de cada servicio) está en [repaso-general.md](repaso-general.md).
 
 ---
 
