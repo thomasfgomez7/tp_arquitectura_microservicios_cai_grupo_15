@@ -84,7 +84,7 @@ public class UserServiceTests
     }
 
     [Fact]
-    public async Task LoginAsync_TercerIntentoFallido_BloqueaCuenta_LanzaUsr004()
+    public async Task LoginAsync_TercerIntentoFallido_BloqueaCuenta_LanzaUsr003()
     {
         // Arrange
         var user = new User 
@@ -105,9 +105,33 @@ public class UserServiceTests
         var exception = await Assert.ThrowsAsync<BusinessRuleException>(() => 
             _sut.LoginAsync(request, CancellationToken.None));
             
-        // Verificamos que al fallar por tercera vez, lance USR-004 y la cuenta quede inactiva
-        Assert.Equal(ErrorCodes.USR_004, exception.ErrorCode);
+        // D-09: el tercer intento responde USR-003 y deja la cuenta bloqueada.
+        Assert.Equal(ErrorCodes.USR_003, exception.ErrorCode);
+        Assert.Equal(401, exception.StatusCode);
         Assert.False(user.Activo); 
         Assert.Equal(3, user.IntentosFallidos);
+    }
+
+    [Fact]
+    public async Task LoginAsync_CuentaBloqueadaPorIntentos_AunConPasswordCorrecta_LanzaUsr004()
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "test@test.com",
+            PasswordHash = "hash",
+            Activo = false,
+            IntentosFallidos = 3
+        };
+        var request = new LoginRequest { Email = user.Email, Password = "correct" };
+
+        _repositoryMock.ObtenerPorEmailAsync(request.Email, Arg.Any<CancellationToken>())
+            .Returns(user);
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(
+            () => _sut.LoginAsync(request, CancellationToken.None));
+
+        Assert.Equal(ErrorCodes.USR_004, exception.ErrorCode);
+        Assert.Equal(403, exception.StatusCode);
     }
 }
