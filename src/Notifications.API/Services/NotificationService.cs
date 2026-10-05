@@ -8,25 +8,66 @@ namespace Notifications.API.Services;
 
 public class NotificationService(
     INotificationRepository repository,
-    IUsersClient usersClient) : INotificationService
+    IUsersClient usersClient,
+    INotificationSender notificationSender) : INotificationService
 {
-    public async Task<NotificationResponse> SendAsync(SendNotificationRequest request, CancellationToken cancellationToken = default)
+    public async Task<NotificationResponse> SendAsync(
+        SendNotificationRequest request,
+        CancellationToken cancellationToken = default)
     {
-        if (!await usersClient.ExisteUsuarioAsync(request.UsuarioId, cancellationToken))
+        if (!await usersClient.ExisteUsuarioAsync(
+                request.UsuarioId,
+                cancellationToken))
         {
-            throw new NotFoundException(ErrorCodes.NTF_001, "El usuario destinatario no fue encontrado.");
+            throw new NotFoundException(
+                ErrorCodes.NTF_001,
+                "El usuario destinatario no fue encontrado.");
         }
 
         var notification = new Notification
         {
+            Id = Guid.NewGuid(),
             UsuarioId = request.UsuarioId,
             Mensaje = request.Mensaje,
-            Tipo = request.Tipo,
-            Estado = "Enviada" // El enunciado pide simular el envío exitoso
+            Tipo = request.Tipo
         };
+
+        var sendResult = await notificationSender.SendAsync(
+            notification,
+            cancellationToken);
+
+        notification.Estado = sendResult.Estado;
+        notification.FechaEnvio = sendResult.FechaEnvio;
 
         await repository.AgregarAsync(notification, cancellationToken);
 
+        return ToResponse(notification);
+    }
+
+    public async Task<IEnumerable<NotificationResponse>> GetByUserIdAsync(
+        Guid usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        var notifications = await repository.ObtenerPorUsuarioAsync(
+            usuarioId,
+            cancellationToken);
+
+        var result = notifications
+            .Select(ToResponse)
+            .ToArray();
+
+        if (result.Length == 0)
+        {
+            throw new NotFoundException(
+                ErrorCodes.NTF_003,
+                "No se encontraron notificaciones para el usuario.");
+        }
+
+        return result;
+    }
+
+    private static NotificationResponse ToResponse(Notification notification)
+    {
         return new NotificationResponse
         {
             Id = notification.Id,
@@ -36,25 +77,5 @@ public class NotificationService(
             Estado = notification.Estado,
             FechaEnvio = notification.FechaEnvio
         };
-    }
-
-    public async Task<IEnumerable<NotificationResponse>> GetByUserIdAsync(Guid usuarioId, CancellationToken cancellationToken = default)
-    {
-        var notificaciones = await repository.ObtenerPorUsuarioAsync(usuarioId, cancellationToken);
-
-        if (!notificaciones.Any())
-        {
-            throw new NotFoundException(ErrorCodes.NTF_003, "No se encontraron notificaciones para el usuario.");
-        }
-
-        return notificaciones.Select(n => new NotificationResponse
-        {
-            Id = n.Id,
-            UsuarioId = n.UsuarioId,
-            Mensaje = n.Mensaje,
-            Tipo = n.Tipo,
-            Estado = n.Estado,
-            FechaEnvio = n.FechaEnvio
-        });
     }
 }

@@ -1,19 +1,18 @@
-using Notifications.API.Clients;
-using Notifications.API.Repositories;
-using Notifications.API.Services;
+using Notifications.API.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-// --- INYECCIÓN DE DEPENDENCIAS (Tu código nuevo) ---
-builder.Services.AddScoped<INotificationRepository, InMemoryNotificationRepository>();
-builder.Services.AddScoped<IUsersClient, StubUsersClient>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
-// ---------------------------------------------------
+builder.Services.AddNotificationServices();
+builder.Services.AddCorrelationId();
+builder.Services.AddErrorHandling(builder.Configuration);
 
 var app = builder.Build();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
