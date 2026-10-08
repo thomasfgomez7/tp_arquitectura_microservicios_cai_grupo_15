@@ -5,7 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-builder.Services.AddNotificationServices();
+builder.Services.AddNotificationServices(builder.Configuration);
 builder.Services.AddCorrelationId();
 builder.Services.AddErrorHandling(builder.Configuration);
 

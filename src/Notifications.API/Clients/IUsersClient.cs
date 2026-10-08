@@ -1,6 +1,13 @@
 namespace Notifications.API.Clients;
 
+/// <summary>
+/// Consulta a Users.API. El servicio de notificaciones no sabe que del otro lado hay una llamada HTTP.
+/// </summary>
 public interface IUsersClient
 {
-    Task<bool> ExisteUsuarioAsync(Guid usuarioId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Devuelve el usuario, o null si Users.API responde 404.
+    /// Si Users.API falla o no responde, lanza una excepción (termina en NTF-004).
+    /// </summary>
+    Task<UserInfo?> GetUserAsync(Guid userId, CancellationToken cancellationToken = default);
 }

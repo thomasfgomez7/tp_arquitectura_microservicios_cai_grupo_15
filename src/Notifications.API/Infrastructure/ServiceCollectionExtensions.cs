@@ -7,22 +7,35 @@ using Notifications.API.Services;
 
 namespace Notifications.API.Infrastructure;
 
+/// <summary>
+/// Único lugar que asocia cada interfaz con su implementación.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddNotificationServices(
-        this IServiceCollection services)
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<INotificationRepository, InMemoryNotificationRepository>();
-        services.AddScoped<IUsersClient, StubUsersClient>();
         services.AddSingleton<INotificationSender, SimulatedNotificationSender>();
         services.AddScoped<INotificationService, NotificationService>();
+
+        // Typed client: IHttpClientFactory crea y recicla los HttpClient y le inyecta a UsersClient
+        // uno ya configurado con la URL de Users.API.
+        var usersUrl = configuration["Services:UsersApi:BaseUrl"]
+                       ?? throw new InvalidOperationException("Falta la configuración 'Services:UsersApi:BaseUrl'.");
+
+        services.AddHttpClient<IUsersClient, UsersClient>(client =>
+        {
+            client.BaseAddress = new Uri(usersUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
 
         return services;
     }
 
-    public static IServiceCollection AddCorrelationId(
-        this IServiceCollection services)
+    public static IServiceCollection AddCorrelationId(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();
         services.AddSingleton<ICorrelationIdAccessor, CorrelationIdAccessor>();
@@ -39,14 +52,14 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<ErrorResponseWriter>();
 
-        // Se registran desde la excepción más específica hasta la más general.
+        // Del más específico al más genérico: el framework usa el primero que devuelve true.
         services.AddExceptionHandler<NotFoundExceptionHandler>();
         services.AddExceptionHandler<BusinessRuleExceptionHandler>();
         services.AddExceptionHandler<ValidationExceptionHandler>();
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddProblemDetails();
 
-        // Convierte los errores automáticos de [ApiController] en NTF-002.
+        // Los errores automáticos de [ApiController] se convierten en NTF-002.
         services.Configure<ApiBehaviorOptions>(options =>
             options.InvalidModelStateResponseFactory = context =>
                 throw new ValidationException(
