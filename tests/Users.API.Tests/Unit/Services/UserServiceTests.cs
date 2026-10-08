@@ -41,7 +41,7 @@ public class UserServiceTests
         Assert.Equal(Ahora, response.FechaRegistro);
         Assert.True(response.Activo);
 
-        await _repository.Received(1).AgregarAsync(
+        await _repository.Received(1).AddAsync(
             Arg.Is<User>(u => u.Id == response.Id
                               && u.PasswordHash == "hash-generado"
                               && u.Activo
@@ -53,14 +53,14 @@ public class UserServiceTests
     public async Task RegisterAsync_EmailExistente_LanzaUsr001()
     {
         var request = NuevoRegistro("maria@email.com");
-        _repository.ExisteEmailAsync(request.Email, Arg.Any<CancellationToken>()).Returns(true);
+        _repository.ExistsByEmailAsync(request.Email, Arg.Any<CancellationToken>()).Returns(true);
 
         var exception = await Assert.ThrowsAsync<BusinessRuleException>(() => _sut.RegisterAsync(request));
 
         Assert.Equal(ErrorCodes.USR_001, exception.ErrorCode);
         Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
         Assert.Equal("El email 'maria@email.com' ya está registrado.", exception.Message);
-        await _repository.DidNotReceive().AgregarAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
     }
 
     // ---------- LoginAsync ----------
@@ -77,13 +77,13 @@ public class UserServiceTests
         Assert.Equal(user.Nombre, response.Nombre);
         Assert.Equal(user.Email, response.Email);
         Assert.Equal(0, user.IntentosFallidos);
-        await _repository.Received(1).ActualizarAsync(user, Arg.Any<CancellationToken>());
+        await _repository.Received(1).UpdateAsync(user, Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task LoginAsync_EmailInexistente_LanzaUsr003()
     {
-        _repository.ObtenerPorEmailAsync("nadie@email.com", Arg.Any<CancellationToken>()).Returns((User?)null);
+        _repository.GetByEmailAsync("nadie@email.com", Arg.Any<CancellationToken>()).Returns((User?)null);
 
         var exception = await Assert.ThrowsAsync<BusinessRuleException>(
             () => _sut.LoginAsync(Login("nadie@email.com")));
@@ -106,7 +106,7 @@ public class UserServiceTests
         Assert.Equal(StatusCodes.Status401Unauthorized, exception.StatusCode);
         Assert.Equal(1, user.IntentosFallidos);
         Assert.True(user.Activo);
-        await _repository.Received(1).ActualizarAsync(user, Arg.Any<CancellationToken>());
+        await _repository.Received(1).UpdateAsync(user, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class UserServiceTests
     public async Task GetByIdAsync_UsuarioExistente_DevuelveElUsuario()
     {
         var user = Usuario(activo: true, intentosFallidos: 0);
-        _repository.ObtenerPorIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _repository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
 
         var response = await _sut.GetByIdAsync(user.Id);
 
@@ -179,7 +179,7 @@ public class UserServiceTests
     public async Task GetByIdAsync_UsuarioInexistente_LanzaUsr007()
     {
         var id = Guid.NewGuid();
-        _repository.ObtenerPorIdAsync(id, Arg.Any<CancellationToken>()).Returns((User?)null);
+        _repository.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns((User?)null);
 
         var exception = await Assert.ThrowsAsync<NotFoundException>(() => _sut.GetByIdAsync(id));
 
@@ -191,7 +191,7 @@ public class UserServiceTests
 
     private void ConfigurarLogin(User user, PasswordVerificationResult resultado)
     {
-        _repository.ObtenerPorEmailAsync(user.Email, Arg.Any<CancellationToken>()).Returns(user);
+        _repository.GetByEmailAsync(user.Email, Arg.Any<CancellationToken>()).Returns(user);
         _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, Arg.Any<string>()).Returns(resultado);
     }
 

@@ -20,10 +20,16 @@ public class InMemoryUserRepository : IUserRepository
             StringComparer.OrdinalIgnoreCase);
     }
 
-    public Task<bool> ExisteEmailAsync(string email, CancellationToken cancellationToken = default) =>
+    public Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default) =>
         Task.FromResult(_usersByEmail.ContainsKey(email));
 
-    public Task AgregarAsync(User user, CancellationToken cancellationToken = default)
+    public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_usersByEmail.GetValueOrDefault(email));
+
+    public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_usersByEmail.Values.FirstOrDefault(user => user.Id == id));
+
+    public Task AddAsync(User user, CancellationToken cancellationToken = default)
     {
         // UserService ya verificó el email antes. Esto solo pasa si dos registros iguales
         // llegan al mismo tiempo: termina en un 500 (USR-006) en lugar de pisar al usuario.
@@ -35,13 +41,7 @@ public class InMemoryUserRepository : IUserRepository
         return Task.CompletedTask;
     }
 
-    public Task<User?> ObtenerPorEmailAsync(string email, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_usersByEmail.GetValueOrDefault(email));
-
-    public Task<User?> ObtenerPorIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_usersByEmail.Values.FirstOrDefault(user => user.Id == id));
-
-    public Task ActualizarAsync(User user, CancellationToken cancellationToken = default)
+    public Task UpdateAsync(User user, CancellationToken cancellationToken = default)
     {
         _usersByEmail[user.Email] = user;
         return Task.CompletedTask;

@@ -6,42 +6,42 @@ namespace Users.API.Tests.Unit.Repositories;
 public class InMemoryUserRepositoryTests
 {
     [Fact]
-    public async Task ExisteEmailAsync_SinDistinguirMayusculas_DevuelveTrue()
+    public async Task ExistsByEmailAsync_SinDistinguirMayusculas_DevuelveTrue()
     {
         var repository = new InMemoryUserRepository([Usuario("maria@email.com")]);
 
-        Assert.True(await repository.ExisteEmailAsync("MARIA@email.com"));
-        Assert.False(await repository.ExisteEmailAsync("otro@email.com"));
+        Assert.True(await repository.ExistsByEmailAsync("MARIA@email.com"));
+        Assert.False(await repository.ExistsByEmailAsync("otro@email.com"));
     }
 
     [Fact]
-    public async Task ObtenerPorIdAsync_UsuarioExistente_LoDevuelve()
+    public async Task GetByIdAsync_UsuarioExistente_LoDevuelve()
     {
         var user = Usuario("maria@email.com");
         var repository = new InMemoryUserRepository([user]);
 
-        Assert.Same(user, await repository.ObtenerPorIdAsync(user.Id));
-        Assert.Null(await repository.ObtenerPorIdAsync(Guid.NewGuid()));
+        Assert.Same(user, await repository.GetByIdAsync(user.Id));
+        Assert.Null(await repository.GetByIdAsync(Guid.NewGuid()));
     }
 
     [Fact]
-    public async Task AgregarAsync_UsuarioNuevo_SePuedeBuscarPorEmail()
+    public async Task AddAsync_UsuarioNuevo_SePuedeBuscarPorEmail()
     {
         var repository = new InMemoryUserRepository();
         var user = Usuario("nuevo@email.com");
 
-        await repository.AgregarAsync(user);
+        await repository.AddAsync(user);
 
-        Assert.Same(user, await repository.ObtenerPorEmailAsync("NUEVO@email.com"));
+        Assert.Same(user, await repository.GetByEmailAsync("NUEVO@email.com"));
     }
 
     [Fact]
-    public async Task AgregarAsync_EmailRepetido_LanzaInvalidOperationException()
+    public async Task AddAsync_EmailRepetido_LanzaInvalidOperationException()
     {
         var repository = new InMemoryUserRepository([Usuario("maria@email.com")]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => repository.AgregarAsync(Usuario("Maria@Email.com")));
+            () => repository.AddAsync(Usuario("Maria@Email.com")));
     }
 
     private static User Usuario(string email) => new()

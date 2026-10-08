@@ -27,7 +27,7 @@ public class DependencyInjectionTests : IDisposable
         var repository = _factory.Services.GetRequiredService<IUserRepository>();
 
         Assert.Same(repository, _factory.Services.GetRequiredService<IUserRepository>());
-        Assert.NotNull(await repository.ObtenerPorIdAsync(Guid.Parse("a1b2c3d4-0000-0000-0000-111122223333")));
+        Assert.NotNull(await repository.GetByIdAsync(Guid.Parse("a1b2c3d4-0000-0000-0000-111122223333")));
     }
 
     public void Dispose() => _factory.Dispose();

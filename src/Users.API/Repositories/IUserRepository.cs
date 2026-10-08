@@ -2,11 +2,18 @@ using Users.API.Models;
 
 namespace Users.API.Repositories;
 
+/// <summary>
+/// Persistencia de usuarios. Cuando llegue la librería de la cátedra solo cambia la implementación (D-03).
+/// </summary>
 public interface IUserRepository
 {
-    Task<bool> ExisteEmailAsync(string email, CancellationToken cancellationToken = default);
-    Task AgregarAsync(User user, CancellationToken cancellationToken = default);
-    Task<User?> ObtenerPorEmailAsync(string email, CancellationToken cancellationToken = default);
-    Task<User?> ObtenerPorIdAsync(Guid id, CancellationToken cancellationToken = default);
-    Task ActualizarAsync(User user, CancellationToken cancellationToken = default);
+    Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default);
+
+    Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+
+    Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task AddAsync(User user, CancellationToken cancellationToken = default);
+
+    Task UpdateAsync(User user, CancellationToken cancellationToken = default);
 }

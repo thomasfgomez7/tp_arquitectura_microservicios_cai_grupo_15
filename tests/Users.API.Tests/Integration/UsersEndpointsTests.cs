@@ -33,7 +33,7 @@ public class UsersEndpointsTests(UsersApiFactory factory) : IClassFixture<UsersA
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await LeerJsonAsync(response);
         var id = body.GetProperty("id").GetGuid();
-        Assert.Equal($"/api/users/{id}", response.Headers.Location?.ToString());
+        Assert.Equal($"/api/users/{id}", response.Headers.Location?.AbsolutePath);
         Assert.Equal("Ana", body.GetProperty("nombre").GetString());
         Assert.Equal("Martínez", body.GetProperty("apellido").GetString());
         Assert.Equal(email, body.GetProperty("email").GetString());

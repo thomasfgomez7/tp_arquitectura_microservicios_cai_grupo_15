@@ -7,24 +7,24 @@ namespace Users.API.Services;
 /// </summary>
 public class AccountLockoutPolicy
 {
-    public const int MaxIntentosFallidos = 3;
+    public const int MaxFailedAttempts = 3;
 
-    public void RegistrarIntentoFallido(User user)
+    public void RegisterFailedAttempt(User user)
     {
         user.IntentosFallidos++;
 
-        if (user.IntentosFallidos >= MaxIntentosFallidos)
+        if (user.IntentosFallidos >= MaxFailedAttempts)
         {
             user.Activo = false;
         }
     }
 
-    public void ResetearIntentos(User user) => user.IntentosFallidos = 0;
+    public void ResetFailedAttempts(User user) => user.IntentosFallidos = 0;
 
     /// <summary>
     /// D-08: inactivo con 3 o más intentos = bloqueado por intentos (USR-004);
     /// inactivo con menos intentos = bloqueado manualmente (USR-005).
     /// </summary>
-    public bool EstaBloqueadoPorIntentos(User user) =>
-        !user.Activo && user.IntentosFallidos >= MaxIntentosFallidos;
+    public bool IsLockedOutByAttempts(User user) =>
+        !user.Activo && user.IntentosFallidos >= MaxFailedAttempts;
 }

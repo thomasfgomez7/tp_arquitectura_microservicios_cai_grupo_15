@@ -16,7 +16,7 @@ public class UserService(
         RegisterUserRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (await repository.ExisteEmailAsync(request.Email, cancellationToken))
+        if (await repository.ExistsByEmailAsync(request.Email, cancellationToken))
         {
             throw new BusinessRuleException(
                 ErrorCodes.USR_001,
@@ -37,7 +37,7 @@ public class UserService(
 
         newUser.PasswordHash = passwordHasher.HashPassword(newUser, request.Password);
 
-        await repository.AgregarAsync(newUser, cancellationToken);
+        await repository.AddAsync(newUser, cancellationToken);
 
         return ToUserResponse(newUser);
     }
@@ -46,31 +46,31 @@ public class UserService(
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
-        var user = await repository.ObtenerPorEmailAsync(request.Email, cancellationToken)
-                   ?? throw CredencialesIncorrectas();
+        var user = await repository.GetByEmailAsync(request.Email, cancellationToken)
+                   ?? throw InvalidCredentials();
 
         // Un usuario bloqueado no puede entrar, ni siquiera con la contraseña correcta (D-09).
         if (!user.Activo)
         {
-            throw lockoutPolicy.EstaBloqueadoPorIntentos(user)
-                ? BloqueadoPorIntentos()
-                : BloqueadoManualmente();
+            throw lockoutPolicy.IsLockedOutByAttempts(user)
+                ? LockedOutByAttempts()
+                : LockedOutManually();
         }
 
         var result = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
 
         if (result == PasswordVerificationResult.Failed)
         {
-            lockoutPolicy.RegistrarIntentoFallido(user);
-            await repository.ActualizarAsync(user, cancellationToken);
+            lockoutPolicy.RegisterFailedAttempt(user);
+            await repository.UpdateAsync(user, cancellationToken);
 
             // D-09: el tercer fallo bloquea la cuenta pero responde 401 USR-003;
             // el siguiente login responde 403 USR-004.
-            throw CredencialesIncorrectas();
+            throw InvalidCredentials();
         }
 
-        lockoutPolicy.ResetearIntentos(user);
-        await repository.ActualizarAsync(user, cancellationToken);
+        lockoutPolicy.ResetFailedAttempts(user);
+        await repository.UpdateAsync(user, cancellationToken);
 
         return new LoginResponse
         {
@@ -85,23 +85,23 @@ public class UserService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var user = await repository.ObtenerPorIdAsync(id, cancellationToken)
+        var user = await repository.GetByIdAsync(id, cancellationToken)
                    ?? throw new NotFoundException(ErrorCodes.USR_007, "Usuario no encontrado.");
 
         return ToUserResponse(user);
     }
 
-    private static BusinessRuleException CredencialesIncorrectas() =>
+    private static BusinessRuleException InvalidCredentials() =>
         new(ErrorCodes.USR_003,
             "Credenciales incorrectas.",
             StatusCodes.Status401Unauthorized);
 
-    private static BusinessRuleException BloqueadoPorIntentos() =>
+    private static BusinessRuleException LockedOutByAttempts() =>
         new(ErrorCodes.USR_004,
             "Su cuenta fue bloqueada por superar el máximo de intentos fallidos. Contacte a soporte.",
             StatusCodes.Status403Forbidden);
 
-    private static BusinessRuleException BloqueadoManualmente() =>
+    private static BusinessRuleException LockedOutManually() =>
         new(ErrorCodes.USR_005,
             "Su cuenta fue suspendida por razones de seguridad. Contacte a soporte.",
             StatusCodes.Status403Forbidden);
