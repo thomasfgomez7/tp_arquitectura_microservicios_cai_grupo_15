@@ -30,7 +30,7 @@ public class NotificationServiceTests
     {
         _usersClient.GetUserAsync(UsuarioId, Arg.Any<CancellationToken>()).Returns(Maria());
         _sender.SendAsync(Arg.Any<Notification>(), Arg.Any<CancellationToken>())
-            .Returns(new NotificationSendResult("Enviada", FechaEnvio));
+            .Returns(new NotificationSendResult(NotificationStatus.Enviada, FechaEnvio));
 
         var response = await _sut.SendAsync(Request(UsuarioId));
 
@@ -41,10 +41,11 @@ public class NotificationServiceTests
         Assert.Equal("Enviada", response.Estado);
         Assert.Equal(FechaEnvio, response.FechaEnvio);
 
-        await _repository.Received(1).AgregarAsync(
+        await _repository.Received(1).AddAsync(
             Arg.Is<Notification>(n => n.Id == response.Id
                                       && n.UsuarioId == UsuarioId
-                                      && n.Estado == "Enviada"
+                                      && n.Tipo == NotificationType.Email
+                                      && n.Estado == NotificationStatus.Enviada
                                       && n.FechaEnvio == FechaEnvio),
             Arg.Any<CancellationToken>());
     }
@@ -59,7 +60,7 @@ public class NotificationServiceTests
         Assert.Equal(ErrorCodes.NTF_001, exception.ErrorCode);
         Assert.Equal("El usuario destinatario no fue encontrado.", exception.Message);
         await _sender.DidNotReceive().SendAsync(Arg.Any<Notification>(), Arg.Any<CancellationToken>());
-        await _repository.DidNotReceive().AgregarAsync(Arg.Any<Notification>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Notification>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -69,6 +70,17 @@ public class NotificationServiceTests
 
         Assert.Equal(ErrorCodes.NTF_002, exception.ErrorCode);
         Assert.Equal("El usuario es obligatorio.", exception.Message);
+    }
+
+    [Fact]
+    public async Task SendAsync_TipoNoReconocido_LanzaNtf002()
+    {
+        var request = Request(UsuarioId) with { Tipo = "Fax" };
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _sut.SendAsync(request));
+
+        Assert.Equal(ErrorCodes.NTF_002, exception.ErrorCode);
+        Assert.Equal("El tipo debe ser Email, Push o SMS.", exception.Message);
     }
 
     // ---------- GetByUserIdAsync ----------
@@ -81,25 +93,26 @@ public class NotificationServiceTests
             Id = Guid.NewGuid(),
             UsuarioId = UsuarioId,
             Mensaje = "Hola",
-            Tipo = "Push",
-            Estado = "Enviada",
+            Tipo = NotificationType.Push,
+            Estado = NotificationStatus.Enviada,
             FechaEnvio = FechaEnvio
         };
-        _repository.ObtenerPorUsuarioAsync(UsuarioId, Arg.Any<CancellationToken>())
-            .Returns(new[] { notificacion }.AsEnumerable());
+        _repository.GetByUserIdAsync(UsuarioId, Arg.Any<CancellationToken>())
+            .Returns(new List<Notification> { notificacion });
 
         var response = await _sut.GetByUserIdAsync(UsuarioId);
 
         var unica = Assert.Single(response);
         Assert.Equal(notificacion.Id, unica.Id);
         Assert.Equal("Push", unica.Tipo);
+        Assert.Equal("Enviada", unica.Estado);
     }
 
     [Fact]
     public async Task GetByUserIdAsync_SinNotificaciones_LanzaNtf003()
     {
-        _repository.ObtenerPorUsuarioAsync(UsuarioId, Arg.Any<CancellationToken>())
-            .Returns(Enumerable.Empty<Notification>());
+        _repository.GetByUserIdAsync(UsuarioId, Arg.Any<CancellationToken>())
+            .Returns(new List<Notification>());
 
         var exception = await Assert.ThrowsAsync<NotFoundException>(() => _sut.GetByUserIdAsync(UsuarioId));
 

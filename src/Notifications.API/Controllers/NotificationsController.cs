@@ -10,32 +10,38 @@ namespace Notifications.API.Controllers;
 /// ni try/catch: las excepciones las convierten los IExceptionHandler.
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/notifications")]
+[Tags("Notifications")]
 public class NotificationsController(INotificationService notificationService) : ControllerBase
 {
+    /// <summary>Registra una notificación y simula su envío.</summary>
+    /// <remarks>El usuario destinatario se verifica en Users.API.</remarks>
+    /// <param name="request">Destinatario, mensaje y tipo (Email, Push o SMS).</param>
+    /// <param name="cancellationToken">Cancelación del request.</param>
+    /// <response code="201">La notificación registrada, con su estado y fecha de envío.</response>
     [HttpPost("send")]
-    public async Task<IActionResult> SendAsync(
-        [FromBody] SendNotificationRequest request,
-        CancellationToken cancellationToken)
-    {
-        var response = await notificationService.SendAsync(request, cancellationToken);
+    [Consumes("application/json")]
+    [ProducesResponseType<NotificationResponse>(StatusCodes.Status201Created, "application/json")]
+    public async Task<ActionResult<NotificationResponse>> Send(
+        SendNotificationRequest request,
+        CancellationToken cancellationToken) =>
+        StatusCode(StatusCodes.Status201Created, await notificationService.SendAsync(request, cancellationToken));
 
-        return StatusCode(StatusCodes.Status201Created, response);
-    }
-
-    // El id llega como texto para que uno mal formado responda 404 con su errorCode (D-17).
+    /// <summary>Lista las notificaciones de un usuario.</summary>
+    /// <param name="userId">ID del usuario (GUID). Ej.: a1b2c3d4-0000-0000-0000-111122223333.</param>
+    /// <param name="cancellationToken">Cancelación del request.</param>
+    /// <response code="200">Las notificaciones del usuario.</response>
     [HttpGet("{userId}")]
-    public async Task<IActionResult> GetByUserIdAsync(string userId, CancellationToken cancellationToken)
-    {
-        if (!Guid.TryParse(userId, out var usuarioId))
-        {
-            throw new NotFoundException(
-                ErrorCodes.NTF_003,
-                "No se encontraron notificaciones para el usuario.");
-        }
+    [ProducesResponseType<IReadOnlyList<NotificationResponse>>(StatusCodes.Status200OK, "application/json")]
+    public async Task<ActionResult<IReadOnlyList<NotificationResponse>>> GetByUserId(
+        string userId,
+        CancellationToken cancellationToken) =>
+        Ok(await notificationService.GetByUserIdAsync(ParseUserId(userId), cancellationToken));
 
-        var response = await notificationService.GetByUserIdAsync(usuarioId, cancellationToken);
-
-        return Ok(response);
-    }
+    // El id llega como texto para que uno mal formado (ej. /api/notifications/99) responda
+    // 404 con su errorCode en lugar de un 404 vacío del ruteo (D-17).
+    private static Guid ParseUserId(string userId) =>
+        Guid.TryParse(userId, out var guid)
+            ? guid
+            : throw new NotFoundException(ErrorCodes.NTF_003, "No se encontraron notificaciones para el usuario.");
 }

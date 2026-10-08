@@ -15,9 +15,15 @@ public class NotificationService(
         SendNotificationRequest request,
         CancellationToken cancellationToken = default)
     {
-        // [Required] ya lo valida antes de llegar acá; esto protege al servicio si lo usa otro código.
+        // Las Data Annotations ya lo validan antes de llegar acá; esto protege al servicio
+        // si lo usa otro código.
         var usuarioId = request.UsuarioId
             ?? throw new ValidationException(ErrorCodes.NTF_002, "El usuario es obligatorio.");
+
+        if (!Enum.GetNames<NotificationType>().Contains(request.Tipo))
+        {
+            throw new ValidationException(ErrorCodes.NTF_002, "El tipo debe ser Email, Push o SMS.");
+        }
 
         if (await usersClient.GetUserAsync(usuarioId, cancellationToken) is null)
         {
@@ -31,7 +37,8 @@ public class NotificationService(
             Id = Guid.NewGuid(),
             UsuarioId = usuarioId,
             Mensaje = request.Mensaje,
-            Tipo = request.Tipo
+            Tipo = Enum.Parse<NotificationType>(request.Tipo),
+            Estado = NotificationStatus.Pendiente
         };
 
         var sendResult = await notificationSender.SendAsync(notification, cancellationToken);
@@ -39,36 +46,35 @@ public class NotificationService(
         notification.Estado = sendResult.Estado;
         notification.FechaEnvio = sendResult.FechaEnvio;
 
-        await repository.AgregarAsync(notification, cancellationToken);
+        await repository.AddAsync(notification, cancellationToken);
 
         return ToResponse(notification);
     }
 
-    public async Task<IEnumerable<NotificationResponse>> GetByUserIdAsync(
+    public async Task<IReadOnlyList<NotificationResponse>> GetByUserIdAsync(
         Guid usuarioId,
         CancellationToken cancellationToken = default)
     {
-        var notifications = await repository.ObtenerPorUsuarioAsync(usuarioId, cancellationToken);
+        var notifications = await repository.GetByUserIdAsync(usuarioId, cancellationToken);
 
-        var result = notifications.Select(ToResponse).ToArray();
-
-        if (result.Length == 0)
+        if (notifications.Count == 0)
         {
             throw new NotFoundException(
                 ErrorCodes.NTF_003,
                 "No se encontraron notificaciones para el usuario.");
         }
 
-        return result;
+        return notifications.Select(ToResponse).ToList();
     }
 
+    // Los enums salen como texto ("Email", "Enviada"), igual que en el contrato del enunciado.
     private static NotificationResponse ToResponse(Notification notification) => new()
     {
         Id = notification.Id,
         UsuarioId = notification.UsuarioId,
         Mensaje = notification.Mensaje,
-        Tipo = notification.Tipo,
-        Estado = notification.Estado,
+        Tipo = notification.Tipo.ToString(),
+        Estado = notification.Estado.ToString(),
         FechaEnvio = notification.FechaEnvio
     };
 }
