@@ -1,3 +1,79 @@
 @HostAddress = http://localhost:5001
+@NotebookId = 3fa85f64-5717-4562-b3fc-2c963f66afa6
 
-# Los requests de éxito y de error de cada endpoint se agregan junto con los endpoints.
+### ---------- Éxito ----------
+
+### Listar todos los productos → 200
+GET {{HostAddress}}/api/products
+Accept: application/json
+
+### Listar filtrando por categoría y nombre → 200
+GET {{HostAddress}}/api/products?categoria=Electrónica&nombre=notebook
+Accept: application/json
+
+### Obtener un producto de los datos semilla → 200
+GET {{HostAddress}}/api/products/{{NotebookId}}
+Accept: application/json
+
+### Crear un producto → 201 (cambiar el nombre para repetirlo)
+POST {{HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "nombre": "Mouse inalámbrico",
+  "descripcion": "Mouse óptico 1600 DPI",
+  "precio": 45.00,
+  "stock": 30,
+  "categoria": "Electrónica"
+}
+
+### Actualizar un producto → 200
+PUT {{HostAddress}}/api/products/{{NotebookId}}
+Content-Type: application/json
+
+{
+  "nombre": "Notebook Dell XPS 15",
+  "descripcion": "Laptop 15 pulgadas, 64GB RAM",
+  "precio": 1750.00,
+  "stock": 8,
+  "categoria": "Electrónica"
+}
+
+### Eliminar un producto (Pelota de fútbol, datos semilla) → 204
+DELETE {{HostAddress}}/api/products/b2c3d4e5-0000-0000-0000-000000000004
+
+### ---------- Errores ----------
+
+### PRD-001: producto inexistente → 404
+GET {{HostAddress}}/api/products/99
+
+### PRD-002: datos inválidos → 400 (lista todos los problemas separados por ";")
+POST {{HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "nombre": "",
+  "precio": 0,
+  "categoria": "Otros"
+}
+
+### PRD-002: JSON mal formado → 400
+POST {{HostAddress}}/api/products
+Content-Type: application/json
+
+{ "nombre":
+
+### PRD-003: nombre duplicado en la categoría → 409
+POST {{HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "nombre": "notebook dell xps 15",
+  "precio": 1500.00,
+  "stock": 1,
+  "categoria": "Electrónica"
+}
+
+### PRD-004: producto con órdenes activas → 409
+# No se puede provocar hasta la Etapa 9: StubOrdersClient responde siempre "sin órdenes activas".
+# Mientras tanto está cubierto por el test Delete_ProductoConOrdenesActivas_Devuelve409ConPRD004.

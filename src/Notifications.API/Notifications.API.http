@@ -1,3 +1,74 @@
 @HostAddress = http://localhost:5005
+# Usuaria de los datos semilla de Users.API
+@MariaId = a1b2c3d4-0000-0000-0000-111122223333
+# Usuario que no existe en Users.API
+@UsuarioInexistente = 11111111-2222-3333-4444-555555555555
 
-# Los requests de éxito y de error de cada endpoint se agregan junto con los endpoints.
+# Requiere Users.API levantado en el puerto 5002 para enviar notificaciones.
+
+### ---------- Éxito ----------
+
+### Enviar una notificación → 201
+POST {{HostAddress}}/api/notifications/send
+Content-Type: application/json
+
+{
+  "usuarioId": "{{MariaId}}",
+  "mensaje": "Su orden #f1e2d3c4 fue confirmada.",
+  "tipo": "Email"
+}
+
+### Listar las notificaciones de un usuario → 200 (después de enviar al menos una)
+GET {{HostAddress}}/api/notifications/{{MariaId}}
+Accept: application/json
+
+### ---------- Errores ----------
+
+### Usuario inexistente en Users.API → 404 (NTF-001)
+POST {{HostAddress}}/api/notifications/send
+Content-Type: application/json
+
+{
+  "usuarioId": "{{UsuarioInexistente}}",
+  "mensaje": "Hola",
+  "tipo": "Email"
+}
+
+### Tipo no reconocido → 400 (NTF-002)
+POST {{HostAddress}}/api/notifications/send
+Content-Type: application/json
+
+{
+  "usuarioId": "{{MariaId}}",
+  "mensaje": "Hola",
+  "tipo": "Fax"
+}
+
+### Datos faltantes → 400 (NTF-002), lista todos los problemas
+POST {{HostAddress}}/api/notifications/send
+Content-Type: application/json
+
+{}
+
+### Usuario sin notificaciones → 404 (NTF-003)
+GET {{HostAddress}}/api/notifications/{{UsuarioInexistente}}
+Accept: application/json
+
+### ID que no es un GUID → 404 (NTF-003, D-17)
+GET {{HostAddress}}/api/notifications/99
+Accept: application/json
+
+### ---------- Observabilidad ----------
+
+### Correlation ID propio: se devuelve en el header y aparece en los logs
+GET {{HostAddress}}/api/notifications/{{MariaId}}
+X-Correlation-Id: demo-notifications-123
+
+### Health checks
+GET {{HostAddress}}/health
+
+###
+GET {{HostAddress}}/health/ready
+
+###
+GET {{HostAddress}}/health/live

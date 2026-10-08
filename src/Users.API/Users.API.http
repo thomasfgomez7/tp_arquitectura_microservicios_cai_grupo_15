@@ -1,3 +1,102 @@
 @HostAddress = http://localhost:5002
+# Usuarios de los datos semilla (UserSeedData), todos con la contraseña MiPassword123!
+@MariaId = a1b2c3d4-0000-0000-0000-111122223333
+@Password = MiPassword123!
 
-# Los requests de éxito y de error de cada endpoint se agregan junto con los endpoints.
+### ---------- Éxito ----------
+
+### Registrar un usuario nuevo → 201 (cambiar el email para repetirlo)
+POST {{HostAddress}}/api/users/register
+Content-Type: application/json
+
+{
+  "nombre": "Ana",
+  "apellido": "Martínez",
+  "email": "ana@email.com",
+  "password": "{{Password}}"
+}
+
+### Login correcto → 200
+POST {{HostAddress}}/api/users/login
+Content-Type: application/json
+
+{
+  "email": "maria@email.com",
+  "password": "{{Password}}"
+}
+
+### Obtener un usuario por ID → 200
+GET {{HostAddress}}/api/users/{{MariaId}}
+Accept: application/json
+
+### ---------- Errores ----------
+
+### Email ya registrado → 409 (USR-001)
+POST {{HostAddress}}/api/users/register
+Content-Type: application/json
+
+{
+  "nombre": "María",
+  "apellido": "González",
+  "email": "maria@email.com",
+  "password": "{{Password}}"
+}
+
+### Datos inválidos → 400 (USR-002), lista todos los problemas
+POST {{HostAddress}}/api/users/register
+Content-Type: application/json
+
+{
+  "nombre": "",
+  "email": "no-es-un-email"
+}
+
+### Contraseña incorrecta → 401 (USR-003). Al tercer intento la cuenta se bloquea (D-09)
+POST {{HostAddress}}/api/users/login
+Content-Type: application/json
+
+{
+  "email": "ana@email.com",
+  "password": "PasswordIncorrecta1!"
+}
+
+### Bloqueado por intentos fallidos → 403 (USR-004)
+POST {{HostAddress}}/api/users/login
+Content-Type: application/json
+
+{
+  "email": "juan@email.com",
+  "password": "{{Password}}"
+}
+
+### Bloqueado manualmente (fraude) → 403 (USR-005)
+POST {{HostAddress}}/api/users/login
+Content-Type: application/json
+
+{
+  "email": "carlos@email.com",
+  "password": "{{Password}}"
+}
+
+### Usuario inexistente → 404 (USR-007)
+GET {{HostAddress}}/api/users/11111111-2222-3333-4444-555555555555
+Accept: application/json
+
+### ID que no es un GUID → 404 (USR-007, D-17)
+GET {{HostAddress}}/api/users/99
+Accept: application/json
+
+### ---------- Observabilidad ----------
+
+### Correlation ID propio: se devuelve en el header y aparece en los logs
+GET {{HostAddress}}/api/users/{{MariaId}}
+X-Correlation-Id: demo-users-123
+
+### Health checks
+GET {{HostAddress}}/health
+
+###
+GET {{HostAddress}}/health/ready
+
+###
+GET {{HostAddress}}/health/live
