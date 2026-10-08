@@ -1,9 +1,8 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Users.API.Tests.Integration;
 
-public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class SmokeTests(UsersApiFactory factory) : IClassFixture<UsersApiFactory>
 {
     [Fact]
     public async Task Get_RutaInexistente_Devuelve404()

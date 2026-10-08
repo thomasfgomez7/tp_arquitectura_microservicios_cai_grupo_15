@@ -1,38 +1,44 @@
+using System.Text.RegularExpressions;
+using Serilog.Context;
+
 namespace Users.API.Infrastructure;
 
-public class CorrelationIdMiddleware(RequestDelegate next)
+/// <summary>
+/// Toma el X-Correlation-Id del request (o genera uno nuevo), lo devuelve en la respuesta y lo agrega
+/// a todos los logs del request (sección 5.5 del enunciado). Va primero en el pipeline.
+/// </summary>
+public partial class CorrelationIdMiddleware(RequestDelegate next)
 {
     public const string HeaderName = "X-Correlation-Id";
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var correlationId = GetValidHeader(context)
-            ?? Guid.NewGuid().ToString();
+        var correlationId = ReadValidHeader(context) ?? Guid.NewGuid().ToString();
 
         context.Items[HttpContextItemKeys.CorrelationId] = correlationId;
 
+        // OnStarting en lugar de escribir el header ya: si hay una excepción, UseExceptionHandler
+        // limpia los headers de la respuesta, y así el header se agrega igual al enviarla.
         context.Response.OnStarting(() =>
         {
             context.Response.Headers[HeaderName] = correlationId;
             return Task.CompletedTask;
         });
 
-        await next(context);
+        using (LogContext.PushProperty("CorrelationId", correlationId))
+        {
+            await next(context);
+        }
     }
 
-    private static string? GetValidHeader(HttpContext context)
+    // Solo se acepta un valor corto y con caracteres seguros: el valor viene del cliente
+    // y termina escrito en los logs y en otros servicios.
+    private static string? ReadValidHeader(HttpContext context)
     {
         var value = context.Request.Headers[HeaderName].ToString();
-
-        if (value.Length is < 1 or > 64)
-        {
-            return null;
-        }
-
-        var isValid = value.All(character =>
-            char.IsAsciiLetterOrDigit(character)
-            || character is '.' or '_' or '-');
-
-        return isValid ? value : null;
+        return ValidCorrelationId().IsMatch(value) ? value : null;
     }
+
+    [GeneratedRegex("^[A-Za-z0-9._-]{1,64}$")]
+    private static partial Regex ValidCorrelationId();
 }

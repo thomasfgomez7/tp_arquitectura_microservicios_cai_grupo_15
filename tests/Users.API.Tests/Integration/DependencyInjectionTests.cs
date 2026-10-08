@@ -11,7 +11,8 @@ namespace Users.API.Tests.Integration;
 /// </summary>
 public class DependencyInjectionTests : IDisposable
 {
-    private readonly WebApplicationFactory<Program> _factory = new();
+    private readonly WebApplicationFactory<Program> _factory =
+        new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.UseSetting("LogFile:Enabled", "false"));
 
     [Fact]
     public void UserService_ConLaConfiguracionDeLaApp_SeResuelveConTodasSusDependencias()
