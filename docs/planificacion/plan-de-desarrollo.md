@@ -34,14 +34,14 @@ Aspectos transversales en **todos** los servicios: contrato de errores con `erro
 | Cart.API | http://localhost:5004 |
 | Notifications.API | http://localhost:5005 |
 
-### Estado actual (01/10/2026)
+### Estado actual (07/10/2026)
 
 | Servicio | Responsable | Estado | Tests |
 |---|---|---|---|
 | Products.API | Thomas | ✅ Completo (Etapas 1–4). Falta la integración real con Orders (Etapa 9). | 71 |
 | Cart.API | Thomas | ✅ Completo (Etapa 6). Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
-| Users.API | Juan Pablo | 🟡 Lógica y controller. Bloqueantes abiertos de la revisión: `GET /api/users/{id}` y USR-007, registro de dependencias. Falta replicar la plantilla. | 5 |
-| Notifications.API | Juan Pablo | 🟡 Lógica y controller. Bloqueante abierto: repositorio Scoped. Falta replicar la plantilla. | 2 |
+| Users.API | Juan Pablo | ✅ Completo (Etapa 5): registro, login, bloqueo y `GET /api/users/{id}`, con la plantilla replicada. Sin tareas en la Etapa 9. | 72 |
+| Notifications.API | Juan Pablo | ✅ Completo (Etapa 8), con `UsersClient` real y la plantilla replicada. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
 | Orders.API | Juan Pablo | ⬜ Esqueleto (Bloque 5). | 1 |
 
 ---
@@ -201,7 +201,7 @@ Clases concretas: `ProductsController`, `Product`, `CreateProductRequest`, `Upda
 | `IUserRepository` | `InMemoryUserRepository` → adaptador de la librería de la cátedra | `Repositories/` | Guardar y consultar usuarios | Singleton | 5 |
 | `IPasswordHasher<User>` (framework) | `PasswordHasher<User>` (framework) | — | Hashear y verificar contraseñas | Singleton | 5 |
 
-Clases concretas: `UsersController`, `User`, `RegisterUserRequest`, `LoginRequest`, `UserResponse`, `LoginResponse`, `AccountLockoutPolicy` (`Services/`, regla de bloqueo).
+Clases concretas: `UsersController`, `User`, `RegisterUserRequest`, `LoginRequest`, `UserResponse`, `LoginResponse`, `EmailFormat` (`DTOs/`, patrón del email, D-32), `AccountLockoutPolicy` (`Services/`, regla de bloqueo), `UserSeedData` (`Repositories/`, usuarios de la demo con IDs fijos), `UserRepositoryHealthCheck` (`Infrastructure/`).
 
 #### Cart.API — Thomas
 
@@ -233,7 +233,7 @@ Clases concretas: `OrdersController`, `Order`, `OrderItem`, `OrderStatus` (enum)
 | `INotificationSender` | `SimulatedNotificationSender` | `Services/` | Simular el envío; se puede cambiar por un envío real sin tocar el servicio | Singleton | 8 |
 | `IUsersClient` | `UsersClient` | `Clients/` | Verificar que el usuario exista en Users.API | Typed client | 8 |
 
-Clases concretas: `NotificationsController`, `Notification`, `NotificationType` (enum: Email, Push, SMS), `NotificationStatus` (enum: Pendiente, Enviada, Fallida), `SendNotificationRequest`, `NotificationResponse`, `UserInfo`.
+Clases concretas: `NotificationsController`, `Notification`, `NotificationType` (enum: Email, Push, SMS), `NotificationStatus` (enum: Pendiente, Enviada, Fallida), `SendNotificationRequest`, `NotificationResponse`, `NotificationSendResult` (`Services/`, resultado del envío), `UserInfo`, `NotificationRepositoryHealthCheck` (`Infrastructure/`).
 
 #### Cómo se reemplazan en los tests
 
@@ -259,8 +259,8 @@ Clases concretas: `NotificationsController`, `Notification`, `NotificationType` 
 | Hito | Al terminar | Resultado | Estado |
 |---|---|---|---|
 | H1 | Bloque 1 | Solución, proyectos y tests compilando | ✅ PR #1 (27/09) |
-| H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | 🟡 Products listo; falta Users |
-| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Products y Cart listos |
+| H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | 🟡 Products y Users listos; falta el PR |
+| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Products, Users, Cart y Notifications listos; falta Orders |
 | H4 | Bloque 7 | Integración entre servicios, documentación y entrega | ⬜ |
 
 Los bloques se describen en la sección 4.2.
@@ -293,7 +293,7 @@ Herramientas: xUnit, `Microsoft.AspNetCore.Mvc.Testing` (WebApplicationFactory),
 - **Sin código compartido entre microservicios:** cada servicio es autónomo; la plantilla de Products.API se replica.
 - **Fechas con `TimeProvider`** (incluido en .NET) para poder testear lo que depende de la hora actual.
 
-Los diagramas de arquitectura y de clases están en [`docs/arquitectura/arquitectura.md`](../arquitectura/arquitectura.md). Los repasos están en [`docs/repasos/`](../repasos/): uno general ([`repaso-general.md`](../repasos/repaso-general.md), vista de conjunto del proyecto) y uno por API que explica cómo se construyó, con el porqué de cada decisión ([Products](../repasos/repaso-products-api.md), [Cart](../repasos/repaso-cart-api.md)).
+Los diagramas de arquitectura y de clases están en [`docs/arquitectura/arquitectura.md`](../arquitectura/arquitectura.md). Los repasos están en [`docs/repasos/`](../repasos/): uno general ([`repaso-general.md`](../repasos/repaso-general.md), vista de conjunto del proyecto) y uno por API que explica cómo se construyó, con el porqué de cada decisión ([Products](../repasos/repaso-products-api.md), [Cart](../repasos/repaso-cart-api.md), [Users](../repasos/repaso-users-api.md), [Notifications](../repasos/repaso-notifications-api.md)).
 
 ### Convenciones de código
 
@@ -439,6 +439,10 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-26 | `PUT` y `DELETE` de un item que no está en el carrito responden 404 con CRT-002 y el mensaje "El producto no se encuentra en el carrito.". | El catálogo no tiene un código para ese caso; CRT-002 es el "producto no encontrado" de Cart. |
 | D-27 | `DELETE /api/cart/{userId}` (vaciar) elimina el carrito: después, `GET` responde CRT-001. Quitar el último item con `DELETE .../items/{productId}` deja el carrito vacío. | "Vaciar el carrito completo" deja al usuario sin carrito activo; el siguiente `POST /items` crea uno nuevo. |
 | D-28 | Si Products.API responde un error distinto de 404 o no responde, `ProductsClient` lanza una excepción y el handler global responde 500 con CRT-005. | Es una falla de infraestructura, no un dato del negocio. El catálogo de Cart no tiene un código para "servicio no disponible". |
+| D-29 | Si Users.API responde un error distinto de 404 o no responde (timeout de 5 segundos), `UsersClient` de Notifications lanza una excepción y el handler global responde 500 con NTF-004. | Mismo criterio que D-28: es una falla de infraestructura, no un dato del negocio. |
+| D-30 | `GET /api/notifications/{userId}` no consulta a Users.API: un usuario sin notificaciones, exista o no, responde 404 con NTF-003; un id que no es GUID también (D-17). | El catálogo define NTF-001 solo para el POST, y una llamada HTTP extra no cambiaría el resultado. |
+| D-31 | Se puede enviar una notificación a un usuario bloqueado (`Activo = false`): Notifications solo verifica que exista. | El bloqueo impide iniciar sesión, no recibir avisos. |
+| D-32 | El formato del email se valida con `[RegularExpression]` y no con `[EmailAddress]`. | Con un email vacío, `[EmailAddress]` sumaba un segundo error ("formato inválido") al de `[Required]`; `[RegularExpression]` ignora los valores vacíos. |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -592,36 +596,36 @@ Clases concretas:
 Objetivo: registro y login con la política de bloqueo.
 
 Tests primero:
-- [ ] Registrar guarda la contraseña hasheada y la respuesta nunca incluye `PasswordHash`.
-- [ ] Registrar un email existente (sin distinguir mayúsculas) lanza USR-001; datos inválidos, USR-002.
-- [ ] Login correcto devuelve 200 y resetea `IntentosFallidos`.
-- [ ] Login con email inexistente o contraseña incorrecta devuelve USR-003 e incrementa los intentos.
-- [ ] `AccountLockoutPolicy`: el tercer intento fallido bloquea la cuenta (D-09).
-- [ ] Usuario bloqueado por intentos devuelve USR-004; bloqueado manualmente, USR-005 (D-08).
-- [ ] `GET /api/users/{id}` devuelve el usuario o USR-007 (D-06, 5.1).
-- [ ] Contrato de errores completo (USR-001 a USR-007) en tests de integración.
+- [x] Registrar guarda la contraseña hasheada y la respuesta nunca incluye `PasswordHash`.
+- [x] Registrar un email existente (sin distinguir mayúsculas) lanza USR-001; datos inválidos, USR-002.
+- [x] Login correcto devuelve 200 y resetea `IntentosFallidos`.
+- [x] Login con email inexistente o contraseña incorrecta devuelve USR-003 e incrementa los intentos.
+- [x] `AccountLockoutPolicy`: el tercer intento fallido bloquea la cuenta (D-09).
+- [x] Usuario bloqueado por intentos devuelve USR-004; bloqueado manualmente, USR-005 (D-08).
+- [x] `GET /api/users/{id}` devuelve el usuario o USR-007 (D-06, 5.1).
+- [x] Contrato de errores completo (USR-001 a USR-007) en tests de integración.
 
 Lógica de negocio (Bloque 2):
 
 Clases concretas:
-- [ ] `User` (Models) y `RegisterUserRequest`, `LoginRequest`, `UserResponse`, `LoginResponse` (DTOs).
-- [ ] `ErrorCodes` (`USR_001` … `USR_007`) y excepciones según la sección 4.4.
-- [ ] `AccountLockoutPolicy`: regla de bloqueo.
+- [x] `User` (Models) y `RegisterUserRequest`, `LoginRequest`, `UserResponse`, `LoginResponse` (DTOs).
+- [x] `ErrorCodes` (`USR_001` … `USR_007`) y excepciones según la sección 4.4.
+- [x] `AccountLockoutPolicy`: regla de bloqueo.
 
 Interfaces → implementaciones:
-- [ ] `IUserRepository` → `InMemoryUserRepository`, con datos semilla que incluyan un usuario bloqueado manualmente para demostrar USR-005.
-- [ ] `IPasswordHasher<User>` → `PasswordHasher<User>` (ambas del framework).
-- [ ] `IUserService` → `UserService`.
+- [x] `IUserRepository` → `InMemoryUserRepository`, con datos semilla que incluyan un usuario bloqueado manualmente para demostrar USR-005.
+- [x] `IPasswordHasher<User>` → `PasswordHasher<User>` (ambas del framework).
+- [x] `IUserService` → `UserService`.
 
 Capa HTTP y contrato de errores (Bloque 3, replicando la Etapa 2):
-- [ ] `UsersController` con `register`, `login` y `GET /api/users/{id}`.
-- [ ] `ErrorResponseWriter` y los cuatro `IExceptionHandler`; validación automática con USR-002.
-- [ ] `Users.API.http` con requests de éxito y de error.
-- [ ] `docs/repasos/repaso-users-api.md` (convención "Documentación por API").
+- [x] `UsersController` con `register`, `login` y `GET /api/users/{id}`.
+- [x] `ErrorResponseWriter` y los cuatro `IExceptionHandler`; validación automática con USR-002.
+- [x] `Users.API.http` con requests de éxito y de error.
+- [x] `docs/repasos/repaso-users-api.md` (convención "Documentación por API").
 
 Transversales (Bloque 4, replicando las Etapas 3 y 4):
-- [ ] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, `CorrelationIdMiddleware`, `RequestLoggingMiddleware` y Serilog.
-- [ ] Swagger y `HealthCheckResponseWriter`.
+- [x] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, `CorrelationIdMiddleware`, `RequestLoggingMiddleware` y Serilog.
+- [x] Swagger y `HealthCheckResponseWriter`.
 
 ### Etapa 6 — Cart.API
 
@@ -697,30 +701,30 @@ Capa HTTP y transversales (replicando la plantilla):
 Objetivo: servicio de soporte para notificaciones.
 
 Tests primero:
-- [ ] Usuario inexistente lanza NTF-001.
-- [ ] Datos faltantes o `tipo` distinto de Email, Push o SMS lanza NTF-002.
-- [ ] Enviar registra la notificación con el estado que informa `INotificationSender` (`Enviada`) y con `FechaEnvio`.
-- [ ] Listar un usuario sin notificaciones lanza NTF-003.
-- [ ] Contrato de errores completo (NTF-001 a NTF-004) en tests de integración.
+- [x] Usuario inexistente lanza NTF-001.
+- [x] Datos faltantes o `tipo` distinto de Email, Push o SMS lanza NTF-002.
+- [x] Enviar registra la notificación con el estado que informa `INotificationSender` (`Enviada`) y con `FechaEnvio`.
+- [x] Listar un usuario sin notificaciones lanza NTF-003.
+- [x] Contrato de errores completo (NTF-001 a NTF-004) en tests de integración.
 
 Lógica de negocio (Bloque 3):
 
 Clases concretas:
-- [ ] `Notification`, `NotificationType`, `NotificationStatus` (Models) y `SendNotificationRequest`, `NotificationResponse` (DTOs).
-- [ ] `UserInfo` (`Clients/`).
-- [ ] `ErrorCodes` (`NTF_001` … `NTF_004`) y excepciones.
+- [x] `Notification`, `NotificationType`, `NotificationStatus` (Models) y `SendNotificationRequest`, `NotificationResponse` (DTOs).
+- [x] `UserInfo` (`Clients/`).
+- [x] `ErrorCodes` (`NTF_001` … `NTF_004`) y excepciones.
 
 Interfaces → implementaciones:
-- [ ] `INotificationRepository` → `InMemoryNotificationRepository`.
-- [ ] `IUsersClient` → `UsersClient`, contra `GET /api/users/{id}` (contrato de la sección 4.4).
-- [ ] `INotificationSender` → `SimulatedNotificationSender`.
-- [ ] `INotificationService` → `NotificationService`.
+- [x] `INotificationRepository` → `InMemoryNotificationRepository`.
+- [x] `IUsersClient` → `UsersClient`, contra `GET /api/users/{id}` (contrato de la sección 4.4).
+- [x] `INotificationSender` → `SimulatedNotificationSender`.
+- [x] `INotificationService` → `NotificationService`.
 
 Capa HTTP y transversales (Bloque 4, replicando la plantilla):
-- [ ] `NotificationsController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
-- [ ] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
-- [ ] `Notifications.API.http` con requests de éxito y de error.
-- [ ] `docs/repasos/repaso-notifications-api.md` (convención "Documentación por API").
+- [x] `NotificationsController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
+- [x] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
+- [x] `Notifications.API.http` con requests de éxito y de error.
+- [x] `docs/repasos/repaso-notifications-api.md` (convención "Documentación por API").
 
 ### Etapa 9 — Integración entre servicios
 
@@ -741,7 +745,7 @@ Thomas (Products y Cart):
 Juan Pablo (Orders y Notifications):
 - [ ] `CorrelationIdDelegatingHandler` en los clientes HTTP de Orders y Notifications.
 - [ ] `DownstreamServiceHealthCheck` en `/health/ready` de Orders (depende de Users y Products) y Notifications (depende de Users).
-- [ ] Timeouts configurados en los clientes HTTP.
+- [ ] Timeouts configurados en los clientes HTTP (Notifications ✅ 5 segundos; falta Orders).
 - [ ] (Opcional) Orders.API notifica a Notifications.API cuando cambia el estado de una orden.
 - [ ] (Opcional) Descontar stock al crear una orden (D-14).
 

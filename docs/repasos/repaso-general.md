@@ -1,8 +1,8 @@
 # Repaso general del proyecto
 
-Explicación de todo lo hecho en el repositorio hasta el cierre de Cart.API (01/10/2026): de dónde partimos, cómo planificamos, cómo nos organizamos, qué arquitectura elegimos y por qué, qué aprendimos de las revisiones de código y en qué estado está cada servicio.
+Explicación de todo lo hecho en el repositorio hasta el cierre de Users.API y Notifications.API (07/10/2026): de dónde partimos, cómo planificamos, cómo nos organizamos, qué arquitectura elegimos y por qué, qué aprendimos de las revisiones de código y en qué estado está cada servicio.
 
-Este documento da la **vista de conjunto**. El detalle técnico de cómo se construyó la plantilla (controllers, manejo de errores, logs, Swagger y health checks) está en [repaso-products-api.md](repaso-products-api.md); lo propio de cada API, en su repaso: [Products](repaso-products-api.md) y [Cart](repaso-cart-api.md).
+Este documento da la **vista de conjunto**. El detalle técnico de cómo se construyó la plantilla (controllers, manejo de errores, logs, Swagger y health checks) está en [repaso-products-api.md](repaso-products-api.md); lo propio de cada API, en su repaso: [Products](repaso-products-api.md), [Cart](repaso-cart-api.md), [Users](repaso-users-api.md) y [Notifications](repaso-notifications-api.md).
 
 | Documento | Para qué sirve |
 |---|---|
@@ -10,6 +10,9 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 | [plan-de-desarrollo.md](../planificacion/plan-de-desarrollo.md) | La guía de trabajo: decisiones, reparto, convenciones y etapas con sus tareas |
 | [arquitectura.md](../arquitectura/arquitectura.md) | Diagramas del sistema y de clases |
 | [repaso-products-api.md](repaso-products-api.md) | Cómo se construyó Products.API, decisión por decisión |
+| [repaso-cart-api.md](repaso-cart-api.md) | Cómo se construyó Cart.API, el primer servicio que consume a otro |
+| [repaso-users-api.md](repaso-users-api.md) | Cómo se construyó Users.API: contraseñas, bloqueo y el contrato con Orders y Notifications |
+| [repaso-notifications-api.md](repaso-notifications-api.md) | Cómo se construyó Notifications.API: envío simulado y cliente de Users |
 | **Este documento** | La vista de conjunto del proyecto |
 
 ---
@@ -24,12 +27,13 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 6. [La estructura del repositorio](#6-la-estructura-del-repositorio)
 7. [La plantilla común de cada API](#7-la-plantilla-común-de-cada-api)
 8. [Cart.API: el primer servicio que consume a otro](#8-cartapi-el-primer-servicio-que-consume-a-otro)
-9. [La documentación del repositorio](#9-la-documentación-del-repositorio)
-10. [Revisiones de código: qué aprendimos](#10-revisiones-de-código-qué-aprendimos)
-11. [Estado actual de cada servicio](#11-estado-actual-de-cada-servicio)
-12. [Las decisiones, agrupadas por tema](#12-las-decisiones-agrupadas-por-tema)
-13. [Próximos pasos](#13-próximos-pasos)
-14. [Preguntas generales de la defensa](#14-preguntas-generales-de-la-defensa)
+9. [Users.API y Notifications.API](#9-usersapi-y-notificationsapi)
+10. [La documentación del repositorio](#10-la-documentación-del-repositorio)
+11. [Revisiones de código: qué aprendimos](#11-revisiones-de-código-qué-aprendimos)
+12. [Estado actual de cada servicio](#12-estado-actual-de-cada-servicio)
+13. [Las decisiones, agrupadas por tema](#13-las-decisiones-agrupadas-por-tema)
+14. [Próximos pasos](#14-próximos-pasos)
+15. [Preguntas generales de la defensa](#15-preguntas-generales-de-la-defensa)
 
 ---
 
@@ -55,8 +59,12 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 | 30/09 | Thomas | Repasos general y de Products.API | `482fd1c` |
 | 01/10 | Thomas | **Etapa 6 (parte 1):** lógica del carrito y `ProductsClient`, el primer cliente HTTP entre servicios | `0405e34` |
 | 01/10 | Thomas | **Etapa 6 (parte 2):** endpoints de Cart y plantilla replicada. Cart.API completo | `e4a56ea` |
+| 04/10 | Juan Pablo | Users: `GET /api/users/{id}`, contrato de errores y D-09. Notifications: repositorio Singleton y envío simulado. Cierra los bloqueantes de la segunda revisión | `6b16f06`, `a3ad10e`, `5d673a4` |
+| 07/10 | Juan Pablo | Correcciones de la tercera revisión: `UsersClient` real, validaciones en español, repositorios thread-safe, datos semilla y tests de integración | `f927227`, `54a8efa` |
+| 07/10 | Juan Pablo | Alineación con el plan: métodos en inglés, enums de Notifications y acciones del controller como en la plantilla | `aba9c44`, `76b4cee` |
+| 07/10 | Juan Pablo | **Etapas 5 y 8:** plantilla transversal replicada. Users.API y Notifications.API completos | `348fb38` |
 
-En dos semanas se pasó de una plantilla vacía a dos servicios completos (Products y Cart, 161 tests entre los dos) que se comunican entre sí, y la base de los otros tres.
+En tres semanas se pasó de una plantilla vacía a cuatro servicios completos (Products, Cart, Users y Notifications, 290 tests entre los cuatro), dos de ellos consumiendo a otro. Falta Orders.
 
 ---
 
@@ -175,7 +183,7 @@ Con esto, Thomas puede programar el cliente de Orders y Juan Pablo los clientes 
 
 GitHub Actions ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)) compila la solución y corre **todos** los tests en cada push a `develop` o `main` y en cada PR a `main`. La regla "nunca se mergea código que no compile" no depende de que alguien se acuerde de verificarlo.
 
-**Una limitación importante:** el CI solo ve lo que se compila. Un archivo sin extensión `.cs` no entra en la compilación, así que el CI sigue en verde aunque el código tenga errores. Esto pasó de verdad (sección 10.1).
+**Una limitación importante:** el CI solo ve lo que se compila. Un archivo sin extensión `.cs` no entra en la compilación, así que el CI sigue en verde aunque el código tenga errores. Esto pasó de verdad (sección 11.1).
 
 ---
 
@@ -297,7 +305,25 @@ Cart.API es el segundo servicio terminado y el primero que **depende de otro**: 
 
 ---
 
-## 9. La documentación del repositorio
+## 9. Users.API y Notifications.API
+
+Los dos servicios de Juan Pablo que ya están completos. El detalle está en sus repasos: **[repaso-users-api.md](repaso-users-api.md)** y **[repaso-notifications-api.md](repaso-notifications-api.md)**. Lo importante, a nivel proyecto:
+
+| Tema | Qué se hizo | Más detalle |
+|---|---|---|
+| **Users es un proveedor** | No consume a nadie, pero Orders y Notifications dependen de `GET /api/users/{id}` (D-06). Un cambio de contrato no rompe los tests de Users: rompe a los otros | [Repaso de Users, sección 5](repaso-users-api.md#5-el-contrato-con-orders-y-notifications) |
+| **Contraseñas y bloqueo** | Hash con `PasswordHasher<User>` del framework. El bloqueo vive en `AccountLockoutPolicy`: USR-004 vs. USR-005 por los intentos (D-08) y el tercer intento responde 401 (D-09) | [Repaso de Users, sección 3](repaso-users-api.md#3-el-dominio-y-las-reglas) |
+| **Datos de la demo** | Tres usuarios semilla: María (activa), Juan (bloqueado por intentos) y Carlos (bloqueado a mano, para mostrar USR-005) | [Repaso de Users, sección 3.7](repaso-users-api.md#37-datos-semilla) |
+| **Segundo cliente HTTP** | `UsersClient` en Notifications, con el mismo diseño que `ProductsClient` de Cart y un timeout de 5 segundos | [Repaso de Notifications, sección 4](repaso-notifications-api.md#4-usersclient-hablar-con-usersapi) |
+| **Envío simulado** | Detrás de `INotificationSender`: un envío real sería una clase nueva, sin tocar el servicio | [Repaso de Notifications, sección 3.2](repaso-notifications-api.md#32-el-envío-detrás-de-una-interfaz) |
+| **Huecos nuevos** | D-29 (Users caído → NTF-004), D-30 (el GET no consulta a Users), D-31 (se notifica a usuarios bloqueados) y D-32 (validación del email) | [Repaso de Notifications, sección 2](repaso-notifications-api.md#2-antes-de-programar-los-huecos-del-enunciado) |
+| **La plantilla se replicó otra vez** | Copiada de Cart cambiando solo el namespace, los códigos de error y el health check | Repasos, sección 4.2 / 5.2 |
+
+> **Para la defensa:** "Users es el servicio del que dependen otros, por eso su contrato está fijado en un test. Notifications le pregunta a Users si el destinatario existe; un 404 es NTF-001 y una falla de Users es NTF-004."
+
+---
+
+## 10. La documentación del repositorio
 
 | Documento | Cómo se armó | Por qué |
 |---|---|---|
@@ -311,11 +337,11 @@ Todos los diagramas Mermaid se verificaron dibujándolos en un navegador antes d
 
 ---
 
-## 10. Revisiones de código: qué aprendimos
+## 11. Revisiones de código: qué aprendimos
 
-Revisamos el código de Juan Pablo dos veces. No fue para señalar errores, sino porque el enunciado exige que los dos entiendan todo el código, y porque los problemas que se encuentran temprano se corrigen fácil.
+Revisamos el código de Juan Pablo tres veces. No fue para señalar errores, sino porque el enunciado exige que los dos entiendan todo el código, y porque los problemas que se encuentran temprano se corrigen fácil.
 
-### 10.1 Primera revisión: archivos que no compilaban
+### 11.1 Primera revisión: archivos que no compilaban
 
 **Lo que se encontró:** casi todos los archivos de Users estaban **sin extensión `.cs`** y muchos estaban vacíos. Como .NET solo compila los `.cs`, el compilador los ignoraba, y el build y el CI daban verde aunque el código tuviera errores.
 
@@ -323,7 +349,7 @@ Revisamos el código de Juan Pablo dos veces. No fue para señalar errores, sino
 
 **Lo que aprendimos:** "el CI está verde" no significa "el código funciona", si el código no entra en la compilación. Por eso se sumó la convención "revisar `git status` antes de cada commit" y crear las clases desde el editor.
 
-### 10.2 Segunda revisión: mejoró mucho, con tres bloqueantes
+### 11.2 Segunda revisión: mejoró mucho, con tres bloqueantes
 
 Juan Pablo corrigió la primera revisión: archivos con extensión, métodos `async` con `CancellationToken`, DTOs como `record`, validaciones y tests unitarios. Aparecieron tres problemas nuevos que **los tests unitarios no podían detectar**:
 
@@ -335,7 +361,7 @@ Juan Pablo corrigió la primera revisión: archivos con extensión, métodos `as
 
 También hubo observaciones importantes, no bloqueantes: el tercer intento fallido de login no coincide con D-09, la `BusinessRuleException` de Notifications no tiene `statusCode`, los repositorios usan `List<T>` (no es thread-safe), y faltan tests, datos semilla y `TimeProvider`.
 
-### 10.3 Lo que se agregó al plan a partir de las revisiones
+### 11.3 Lo que se agregó al plan a partir de las revisiones
 
 Las dos revisiones dieron origen a la sección **"Convenciones de código"** del plan: 12 reglas concretas, cada una con su porqué. Las más importantes:
 
@@ -346,15 +372,33 @@ Las dos revisiones dieron origen a la sección **"Convenciones de código"** del
 
 **La lección general:** cada tipo de test detecta un tipo de error distinto. Los unitarios prueban la lógica; los de integración, que las piezas estén bien conectadas; los contratos entre servicios se rompen en el otro servicio. Por eso Products tiene los tres tipos de verificación.
 
+### 11.4 Tercera revisión: siete puntos y la alineación con el plan
+
+Los bloqueantes de la segunda revisión se resolvieron el 04/10. La tercera encontró siete puntos más:
+
+| Servicio | Lo que se encontró | Por qué importaba |
+|---|---|---|
+| Notifications | Seguía registrado `StubUsersClient`; `UsersClient.cs` estaba vacío | NTF-001 nunca se validaba de verdad: cualquier usuario "existía" |
+| Notifications | `Guid UsuarioId` con `[Required]` | Un body sin `usuarioId` respondía 404 (NTF-001) en lugar de 400 (NTF-002) |
+| Notifications | Ruta `{userId:guid}` | `/api/notifications/99` respondía un 404 vacío, sin `errorCode` (D-17) |
+| Notifications | Clave `Services:Users:BaseUrl` | No era la acordada (`Services:UsersApi:BaseUrl`) |
+| Users | Validaciones sin mensaje en español | El `errorMessage` de USR-002 salía en inglés, y un email vacío daba dos errores |
+| Users | `List<T>` y sin datos semilla | No era thread-safe, y USR-005 no se podía mostrar en la demo |
+| Users | Pocos tests | Faltaban `GetById`, USR-005, el hash y los de integración |
+
+Todo se corrigió el 07/10 (`f927227`, `54a8efa`). Después se revisaron los dos servicios contra **todas** las decisiones y convenciones del plan, y aparecieron diferencias de prolijidad: métodos en español, tipo y estado de Notifications como texto en lugar de enums, y acciones del controller con otro estilo. Se corrigieron (`aba9c44`, `76b4cee`) y se replicó la plantilla transversal (`348fb38`). Users pasó de 6 a 72 tests y Notifications de 3 a 57.
+
+**La lección:** "compila y pasa los tests" no alcanza si los tests no prueban el contrato. Un stub que dice "sí" a todo hace pasar cualquier test.
+
 ---
 
-## 11. Estado actual de cada servicio
+## 12. Estado actual de cada servicio
 
 | Servicio | Responsable | Estado | Tests |
 |---|---|---|---|
 | **Products.API** | Thomas | ✅ **Completo** (Etapas 1–4). Es la plantilla. Falta la integración real con Orders (Etapa 9). | 71 |
-| **Users.API** | Juan Pablo | 🟡 Lógica de negocio y controller hechos. **Bloqueantes abiertos:** falta `GET /api/users/{id}` y USR-007, y falta registrar las dependencias. Falta replicar errores, logs, Swagger y health checks. | 5 |
-| **Notifications.API** | Juan Pablo | 🟡 Dominio, servicio y controller hechos. **Bloqueante abierto:** repositorio Scoped. Falta replicar la plantilla. | 2 |
+| **Users.API** | Juan Pablo | ✅ **Completo** (Etapa 5). Es el servicio del que dependen Orders y Notifications. Sin tareas en la Etapa 9. | 72 |
+| **Notifications.API** | Juan Pablo | ✅ **Completo** (Etapa 8). Consume a Users. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
 | **Cart.API** | Thomas | ✅ **Completo** (Etapa 6). Primer servicio que consume a otro. Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
 | **Orders.API** | Juan Pablo | ⬜ Solo el esqueleto (Bloque 5). | 1 (humo) |
 
@@ -365,9 +409,9 @@ Las dos revisiones dieron origen a la sección **"Convenciones de código"** del
 
 ---
 
-## 12. Las decisiones, agrupadas por tema
+## 13. Las decisiones, agrupadas por tema
 
-Las 28 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
+Las 32 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
 
 **Estructura y entorno**
 
@@ -417,6 +461,15 @@ Las 28 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 | D-27 | Vaciar elimina el carrito | Deja al usuario sin carrito activo |
 | D-28 | Products caído → 500 con CRT-005 | Es una falla de infraestructura, no del negocio |
 
+**Users.API y Notifications.API**
+
+| # | Decisión | En una línea |
+|---|---|---|
+| D-29 | Users caído → 500 con NTF-004 | Mismo criterio que D-28 |
+| D-30 | El GET de notificaciones no consulta a Users | NTF-001 es solo para el POST |
+| D-31 | Se notifica a usuarios bloqueados | El bloqueo impide el login, no recibir avisos |
+| D-32 | Email con `[RegularExpression]` | Un email vacío da un solo error |
+
 **Observabilidad y documentación**
 
 | # | Decisión | En una línea |
@@ -429,30 +482,29 @@ Las 28 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 ---
 
-## 13. Próximos pasos
+## 14. Próximos pasos
 
-**Juan Pablo (cerrar el hito H2):**
+**Juan Pablo (Bloque 5, Etapa 7):**
 
-1. Restaurar `GET /api/users/{id}` y USR-007.
-2. Registrar las dependencias de Users y agregar `DependencyInjectionTests`.
-3. Cambiar el repositorio de Notifications a Singleton.
-4. Definir D-09: alinear el código o actualizar el plan.
-5. Replicar en Users la capa de errores de la Etapa 2 de Products, usando las carpetas `ExceptionHandlers/` e `Infrastructure/` como referencia.
+1. **Orders.API completo**, replicando lo de Users y Notifications: `UsersClient` (se puede copiar el de Notifications) y `ProductsClient` (el de Cart), `OrderStatusTransitions` y ORD-001 a ORD-007.
+2. **`GET /api/orders?productoId=` (D-07):** Thomas lo necesita para el `OrdersClient` real de PRD-004. Conviene coordinar con él el formato antes de arrancar.
+3. Después, la Etapa 9 en Orders y Notifications: `CorrelationIdDelegatingHandler` y `DownstreamServiceHealthCheck`.
 
 **Thomas (Bloque 5, Etapa 9 en Products y Cart):**
 
-1. `CorrelationIdDelegatingHandler`: que el `X-Correlation-Id` viaje en las llamadas de Cart a Products (el problema de la [sección 7 del repaso de Cart](repaso-cart-api.md#7-la-prueba-con-los-dos-servicios-levantados)).
-2. `DownstreamServiceHealthCheck`: Products en el `/health/ready` de Cart, y Orders en el de Products.
-3. Timeouts en los clientes HTTP.
-4. `OrdersClient` real para PRD-004, que reemplaza a `StubOrdersClient`. **Depende de que Juan Pablo implemente `GET /api/orders?productoId=`:** conviene coordinar con él antes de arrancar.
+1. PR de `develop` a `main` para cerrar el **hito H2** (Products y Users completos).
+2. `CorrelationIdDelegatingHandler`: que el `X-Correlation-Id` viaje en las llamadas de Cart a Products.
+3. `DownstreamServiceHealthCheck`: Products en el `/health/ready` de Cart, y Orders en el de Products.
+4. Timeouts en los clientes HTTP.
+5. `OrdersClient` real para PRD-004, que reemplaza a `StubOrdersClient`. Depende del punto 2 de Juan Pablo.
 
-**Después:** Orders (Juan Pablo), las capturas de Swagger y la parte del README que falta (Etapa 10), y el ensayo de la defensa (Etapa 11).
+**Después:** las capturas de Swagger y la parte del README que falta (Etapa 10), y el ensayo de la defensa (Etapa 11).
 
 ---
 
-## 14. Preguntas generales de la defensa
+## 15. Preguntas generales de la defensa
 
-Las preguntas específicas de Products están en su [repaso](repaso-products-api.md#9-preguntas-probables-de-la-defensa). Estas son las del proyecto en general.
+Las preguntas específicas de cada API están en su repaso: [Products](repaso-products-api.md#9-preguntas-probables-de-la-defensa), [Cart](repaso-cart-api.md#11-preguntas-probables-de-la-defensa), [Users](repaso-users-api.md#11-preguntas-probables-de-la-defensa) y [Notifications](repaso-notifications-api.md#11-preguntas-probables-de-la-defensa). Estas son las del proyecto en general.
 
 **¿Por qué microservicios y no una sola API?**
 Lo pide el enunciado, y además permite que cada servicio se desarrolle, pruebe y despliegue por separado. El costo es la comunicación por HTTP entre servicios, con sus fallas posibles. Para eso están los health checks, los timeouts y el Correlation ID.
