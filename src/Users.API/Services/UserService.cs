@@ -9,7 +9,8 @@ namespace Users.API.Services;
 public class UserService(
     IUserRepository repository,
     IPasswordHasher<User> passwordHasher,
-    AccountLockoutPolicy lockoutPolicy) : IUserService
+    AccountLockoutPolicy lockoutPolicy,
+    TimeProvider timeProvider) : IUserService
 {
     public async Task<UserResponse> RegisterAsync(
         RegisterUserRequest request,
@@ -20,18 +21,21 @@ public class UserService(
             throw new BusinessRuleException(
                 ErrorCodes.USR_001,
                 $"El email '{request.Email}' ya está registrado.",
-                409);
+                StatusCodes.Status409Conflict);
         }
 
         var newUser = new User
         {
+            Id = Guid.NewGuid(),
             Nombre = request.Nombre,
             Apellido = request.Apellido,
-            Email = request.Email
+            Email = request.Email,
+            FechaRegistro = timeProvider.GetUtcNow().UtcDateTime,
+            Activo = true,
+            IntentosFallidos = 0
         };
 
-        newUser.PasswordHash =
-            passwordHasher.HashPassword(newUser, request.Password);
+        newUser.PasswordHash = passwordHasher.HashPassword(newUser, request.Password);
 
         await repository.AgregarAsync(newUser, cancellationToken);
 
@@ -42,50 +46,27 @@ public class UserService(
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
-        var user = await repository.ObtenerPorEmailAsync(
-            request.Email,
-            cancellationToken);
+        var user = await repository.ObtenerPorEmailAsync(request.Email, cancellationToken)
+                   ?? throw CredencialesIncorrectas();
 
-        if (user is null)
-        {
-            throw new BusinessRuleException(
-                ErrorCodes.USR_003,
-                "Credenciales incorrectas.",
-                401);
-        }
-
+        // Un usuario bloqueado no puede entrar, ni siquiera con la contraseña correcta (D-09).
         if (!user.Activo)
         {
-            if (user.IntentosFallidos >= 3)
-            {
-                throw new BusinessRuleException(
-                    ErrorCodes.USR_004,
-                    "Su cuenta fue bloqueada por superar el máximo de intentos fallidos. Contacte a soporte.",
-                    403);
-            }
-
-            throw new BusinessRuleException(
-                ErrorCodes.USR_005,
-                "Su cuenta fue suspendida por razones de seguridad. Contacte a soporte.",
-                403);
+            throw lockoutPolicy.EstaBloqueadoPorIntentos(user)
+                ? BloqueadoPorIntentos()
+                : BloqueadoManualmente();
         }
 
-        var result = passwordHasher.VerifyHashedPassword(
-            user,
-            user.PasswordHash,
-            request.Password);
+        var result = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
 
         if (result == PasswordVerificationResult.Failed)
         {
             lockoutPolicy.RegistrarIntentoFallido(user);
             await repository.ActualizarAsync(user, cancellationToken);
 
-            // El tercer fallo bloquea la cuenta, pero responde 401 USR-003.
-            // El siguiente login responderá 403 USR-004.
-            throw new BusinessRuleException(
-                ErrorCodes.USR_003,
-                "Credenciales incorrectas.",
-                401);
+            // D-09: el tercer fallo bloquea la cuenta pero responde 401 USR-003;
+            // el siguiente login responde 403 USR-004.
+            throw CredencialesIncorrectas();
         }
 
         lockoutPolicy.ResetearIntentos(user);
@@ -104,28 +85,34 @@ public class UserService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var user = await repository.ObtenerPorIdAsync(id, cancellationToken);
-
-        if (user is null)
-        {
-            throw new NotFoundException(
-                ErrorCodes.USR_007,
-                "Usuario no encontrado.");
-        }
+        var user = await repository.ObtenerPorIdAsync(id, cancellationToken)
+                   ?? throw new NotFoundException(ErrorCodes.USR_007, "Usuario no encontrado.");
 
         return ToUserResponse(user);
     }
 
-    private static UserResponse ToUserResponse(User user)
+    private static BusinessRuleException CredencialesIncorrectas() =>
+        new(ErrorCodes.USR_003,
+            "Credenciales incorrectas.",
+            StatusCodes.Status401Unauthorized);
+
+    private static BusinessRuleException BloqueadoPorIntentos() =>
+        new(ErrorCodes.USR_004,
+            "Su cuenta fue bloqueada por superar el máximo de intentos fallidos. Contacte a soporte.",
+            StatusCodes.Status403Forbidden);
+
+    private static BusinessRuleException BloqueadoManualmente() =>
+        new(ErrorCodes.USR_005,
+            "Su cuenta fue suspendida por razones de seguridad. Contacte a soporte.",
+            StatusCodes.Status403Forbidden);
+
+    private static UserResponse ToUserResponse(User user) => new()
     {
-        return new UserResponse
-        {
-            Id = user.Id,
-            Nombre = user.Nombre,
-            Apellido = user.Apellido,
-            Email = user.Email,
-            FechaRegistro = user.FechaRegistro,
-            Activo = user.Activo
-        };
-    }
+        Id = user.Id,
+        Nombre = user.Nombre,
+        Apellido = user.Apellido,
+        Email = user.Email,
+        FechaRegistro = user.FechaRegistro,
+        Activo = user.Activo
+    };
 }

@@ -1,36 +1,49 @@
+using System.Collections.Concurrent;
 using Users.API.Models;
 
 namespace Users.API.Repositories;
 
+/// <summary>
+/// Persistencia en memoria hasta recibir la librería de la cátedra (D-03).
+/// Se registra como Singleton para que los datos sobrevivan entre requests.
+/// </summary>
 public class InMemoryUserRepository : IUserRepository
 {
-    private readonly List<User> _users = new();
+    // La clave es el email sin distinguir mayúsculas: el email queda único
+    // aunque lleguen dos registros iguales al mismo tiempo.
+    private readonly ConcurrentDictionary<string, User> _usersByEmail;
 
-    public Task<bool> ExisteEmailAsync(string email, CancellationToken cancellationToken = default)
+    public InMemoryUserRepository(IEnumerable<User>? initialUsers = null)
     {
-        return Task.FromResult(_users.Any(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase)));
+        _usersByEmail = new ConcurrentDictionary<string, User>(
+            (initialUsers ?? []).ToDictionary(user => user.Email, StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
     }
+
+    public Task<bool> ExisteEmailAsync(string email, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_usersByEmail.ContainsKey(email));
 
     public Task AgregarAsync(User user, CancellationToken cancellationToken = default)
     {
-        _users.Add(user);
+        // UserService ya verificó el email antes. Esto solo pasa si dos registros iguales
+        // llegan al mismo tiempo: termina en un 500 (USR-006) en lugar de pisar al usuario.
+        if (!_usersByEmail.TryAdd(user.Email, user))
+        {
+            throw new InvalidOperationException($"Ya existe un usuario con el email '{user.Email}'.");
+        }
+
         return Task.CompletedTask;
     }
 
-    public Task<User?> ObtenerPorEmailAsync(string email, CancellationToken cancellationToken = default)
-    {
-        var user = _users.FirstOrDefault(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
-        return Task.FromResult(user);
-    }
+    public Task<User?> ObtenerPorEmailAsync(string email, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_usersByEmail.GetValueOrDefault(email));
 
-    public Task<User?> ObtenerPorIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var user = _users.FirstOrDefault(u => u.Id == id);
-        return Task.FromResult(user);
-    }
+    public Task<User?> ObtenerPorIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_usersByEmail.Values.FirstOrDefault(user => user.Id == id));
 
     public Task ActualizarAsync(User user, CancellationToken cancellationToken = default)
     {
+        _usersByEmail[user.Email] = user;
         return Task.CompletedTask;
     }
 }
