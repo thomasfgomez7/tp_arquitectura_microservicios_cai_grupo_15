@@ -1,3 +1,130 @@
 @HostAddress = http://localhost:5003
+# Usuaria de los datos semilla de Users.API
+@Maria = a1b2c3d4-0000-0000-0000-111122223333
+# Productos de los datos semilla de Products.API
+@Notebook = 3fa85f64-5717-4562-b3fc-2c963f66afa6
+@Auriculares = aaaabbbb-cccc-dddd-eeee-ffff00001111
+@Taladro = b2c3d4e5-0000-0000-0000-000000000005
+# Pegar acá el "id" que devuelve el POST de éxito
+@OrdenId = 00000000-0000-0000-0000-000000000000
 
-# Los requests de éxito y de error de cada endpoint se agregan junto con los endpoints.
+# Requiere Users.API levantado en el puerto 5002 y Products.API en el 5001 para crear órdenes.
+
+### ---------- Éxito ----------
+
+### Crear una orden: el precio sale de Products.API y el total se calcula → 201
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "usuarioId": "{{Maria}}",
+  "items": [
+    { "productoId": "{{Notebook}}", "cantidad": 2 },
+    { "productoId": "{{Auriculares}}", "cantidad": 1 }
+  ]
+}
+
+### Listar todas las órdenes → 200
+GET {{HostAddress}}/api/orders
+Accept: application/json
+
+### Listar las órdenes de un usuario → 200
+GET {{HostAddress}}/api/orders?usuarioId={{Maria}}
+Accept: application/json
+
+### Listar las órdenes que incluyen un producto (D-07) → 200
+GET {{HostAddress}}/api/orders?productoId={{Notebook}}
+Accept: application/json
+
+### Filtro que no es un GUID: lista vacía (D-37) → 200
+GET {{HostAddress}}/api/orders?productoId=abc
+Accept: application/json
+
+### Obtener el detalle de la orden creada → 200
+GET {{HostAddress}}/api/orders/{{OrdenId}}
+Accept: application/json
+
+### Confirmar la orden (Pendiente → Confirmada) → 200
+PUT {{HostAddress}}/api/orders/{{OrdenId}}/status
+Content-Type: application/json
+
+{
+  "estado": "Confirmada"
+}
+
+### ---------- Errores ----------
+
+### ORD-001: orden inexistente → 404
+GET {{HostAddress}}/api/orders/99999999-9999-9999-9999-999999999999
+
+### ORD-001: id que no es GUID (D-17) → 404
+GET {{HostAddress}}/api/orders/99
+
+### ORD-002: orden sin items → 400
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "usuarioId": "{{Maria}}",
+  "items": []
+}
+
+### ORD-002: estado desconocido → 400
+PUT {{HostAddress}}/api/orders/{{OrdenId}}/status
+Content-Type: application/json
+
+{
+  "estado": "Pagada"
+}
+
+### ORD-003: usuario inexistente en Users.API → 404
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "usuarioId": "00000000-0000-0000-0000-000000000001",
+  "items": [
+    { "productoId": "{{Notebook}}", "cantidad": 1 }
+  ]
+}
+
+### ORD-004: producto inexistente en Products.API → 404
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "usuarioId": "{{Maria}}",
+  "items": [
+    { "productoId": "00000000-0000-0000-0000-000000000001", "cantidad": 1 }
+  ]
+}
+
+### ORD-005: stock insuficiente (el taladro tiene stock 2) → 422
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "usuarioId": "{{Maria}}",
+  "items": [
+    { "productoId": "{{Taladro}}", "cantidad": 5 }
+  ]
+}
+
+### ORD-006: transición inválida (después de confirmarla, volver a Pendiente) → 409
+PUT {{HostAddress}}/api/orders/{{OrdenId}}/status
+Content-Type: application/json
+
+{
+  "estado": "Pendiente"
+}
+
+### ORD-007: con Users.API o Products.API detenido, crear una orden → 500
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "usuarioId": "{{Maria}}",
+  "items": [
+    { "productoId": "{{Notebook}}", "cantidad": 1 }
+  ]
+}

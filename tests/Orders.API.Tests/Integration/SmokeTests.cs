@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Orders.API.Tests.Integration;
 
-public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class SmokeTests(OrdersApiFactory factory) : IClassFixture<OrdersApiFactory>
 {
     [Fact]
     public async Task Get_RutaInexistente_Devuelve404()
