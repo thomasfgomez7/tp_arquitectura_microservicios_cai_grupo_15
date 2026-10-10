@@ -259,9 +259,12 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
 
         var response = await _client.PutAsJsonAsync($"/api/orders/{orden.Id}/status", Estado("Entregada"));
 
-        await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.Conflict, ErrorCodes.ORD_006,
+        var body = await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.Conflict, ErrorCodes.ORD_006,
             instance: $"/api/orders/{orden.Id}/status",
             errorMessage: "Una orden en estado 'Pendiente' no puede pasar a 'Entregada'.");
+
+        // El ejemplo del enunciado usa un detail propio para ORD-006, no el genérico de 409.
+        Assert.Equal("No se puede modificar el estado.", body.GetProperty("detail").GetString());
     }
 
     [Fact]

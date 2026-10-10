@@ -1,4 +1,5 @@
 using Orders.API.DTOs;
+using Orders.API.Exceptions;
 using Orders.API.Infrastructure;
 
 namespace Orders.API.ExceptionHandlers;
@@ -23,6 +24,12 @@ public class ErrorResponseWriter(ICorrelationIdAccessor correlationIdAccessor)
         [StatusCodes.Status500InternalServerError] = new("https://tools.ietf.org/html/rfc7231#section-6.6.1", "Internal Server Error", "Ocurrió un error inesperado al procesar la solicitud.")
     };
 
+    // Códigos cuyo "detail" difiere del genérico de su status, según los ejemplos del enunciado.
+    private static readonly Dictionary<string, string> DetailByErrorCode = new()
+    {
+        [ErrorCodes.ORD_006] = "No se puede modificar el estado."
+    };
+
     public const string ContentType = "application/problem+json";
 
     public static ErrorResponse Build(
@@ -40,7 +47,7 @@ public class ErrorResponseWriter(ICorrelationIdAccessor correlationIdAccessor)
             Type = info.Type,
             Title = info.Title,
             Status = statusCode,
-            Detail = detail ?? info.Detail,
+            Detail = detail ?? DetailByErrorCode.GetValueOrDefault(errorCode, info.Detail),
             Instance = instance,
             ErrorCode = errorCode,
             ErrorMessage = errorMessage,
