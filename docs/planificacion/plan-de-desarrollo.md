@@ -38,7 +38,7 @@ Aspectos transversales en **todos** los servicios: contrato de errores con `erro
 
 | Servicio | Responsable | Estado | Tests |
 |---|---|---|---|
-| Products.API | Thomas | ✅ Completo (Etapas 1–4). Falta la integración real con Orders (Etapa 9). | 71 |
+| Products.API | Thomas | ✅ Completo (Etapas 1–4) e integrado con Orders (Etapa 9): `OrdersClient` real para PRD-004, Correlation ID saliente y Orders en `/health/ready`. | 97 |
 | Cart.API | Thomas | ✅ Completo (Etapa 6). Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
 | Users.API | Juan Pablo | ✅ Completo (Etapa 5): registro, login, bloqueo y `GET /api/users/{id}`, con la plantilla replicada. Sin tareas en la Etapa 9. | 72 |
 | Notifications.API | Juan Pablo | ✅ Completo (Etapa 8), con `UsersClient` real y la plantilla replicada. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
@@ -189,7 +189,7 @@ Clases concretas comunes (sin interfaz): `ErrorCodes`, `NotFoundException`, `Bus
 |---|---|---|---|---|---|
 | `IProductService` | `ProductService` | `Services/` | Reglas de negocio de productos (PRD-001 a PRD-004) | Scoped | 1 |
 | `IProductRepository` | `InMemoryProductRepository` → adaptador de la librería de la cátedra | `Repositories/` | Guardar y consultar productos | Singleton | 1 |
-| `IOrdersClient` | `StubOrdersClient` (provisoria) → `OrdersClient` | `Clients/` | Saber si un producto tiene órdenes activas | Singleton (stub) · typed client (HTTP) | 1 y 9 |
+| `IOrdersClient` | `OrdersClient` (reemplazó a `StubOrdersClient` en la Etapa 9) | `Clients/` | Saber si un producto tiene órdenes activas | Typed client | 1 y 9 |
 
 Clases concretas: `ProductsController`, `Product`, `CreateProductRequest`, `UpdateProductRequest`, `ProductResponse`, `ProductSeedData` (`Repositories/`, datos de la demo con IDs fijos), `OrderInfo`.
 
@@ -260,7 +260,7 @@ Clases concretas: `NotificationsController`, `Notification`, `NotificationType` 
 |---|---|---|---|
 | H1 | Bloque 1 | Solución, proyectos y tests compilando | ✅ PR #1 (27/09) |
 | H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | 🟡 Products y Users listos; falta el PR |
-| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Products, Users, Cart y Notifications listos; falta Orders |
+| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Los cinco servicios completos; falta el PR |
 | H4 | Bloque 7 | Integración entre servicios, documentación y entrega | ⬜ |
 
 Los bloques se describen en la sección 4.2.
@@ -449,6 +449,7 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-36 | Si Users.API o Products.API responden un error distinto de 404 o no responden (timeout de 5 segundos), los clientes de Orders lanzan una excepción y el handler global responde 500 con ORD-007. | Mismo criterio que D-28 y D-29: es una falla de infraestructura, no un dato del negocio. |
 | D-37 | En `GET /api/orders`, un filtro (`usuarioId` o `productoId`) que no es un GUID devuelve 200 con `[]`. | El endpoint solo admite 200 y 500 (D-12): un filtro inválido no coincide con ninguna orden. |
 | D-38 | `POST /api/orders` no devuelve ni documenta el 409 que lista el enunciado. | El catálogo no tiene ningún error 409 al crear una orden (ORD-006 es del `PUT /status`). Se consulta con los docentes. |
+| D-39 | Si Orders.API responde un error o no responde (timeout de 5 segundos), `DELETE /api/products/{id}` responde 500 con PRD-005 y **no** borra el producto. `/health/ready` de Products informa `Degraded`. | Sin saber si hay órdenes activas no se puede aplicar PRD-004, y un borrado no se puede deshacer ("fallar cerrado"). El resto de los endpoints no depende de Orders, por eso es `Degraded` y no `Unhealthy`. |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -741,14 +742,14 @@ Capa HTTP y transversales (Bloque 4, replicando la plantilla):
 Objetivo: que los servicios colaboren de punta a punta.
 
 Tests primero:
-- [ ] `CorrelationIdDelegatingHandler`: las llamadas salientes incluyen el `X-Correlation-Id` del request original.
-- [ ] `DownstreamServiceHealthCheck`: `/health/ready` informa `Degraded` si un servicio del que depende no responde.
+- [x] `CorrelationIdDelegatingHandler`: las llamadas salientes incluyen el `X-Correlation-Id` del request original (Products).
+- [x] `DownstreamServiceHealthCheck`: `/health/ready` informa `Degraded` si un servicio del que depende no responde (Products).
 
 Thomas (Products y Cart):
-- [ ] `IOrdersClient` → `OrdersClient` (HTTP, con `OrderInfo`), probado contra el contrato de la sección 4.4. Se elimina `StubOrdersClient`.
-- [ ] `CorrelationIdDelegatingHandler` (hereda de `DelegatingHandler`) en los clientes HTTP de Products y Cart.
-- [ ] `DownstreamServiceHealthCheck` (implementa `IHealthCheck`) en `/health/ready` de Products (depende de Orders) y Cart (depende de Products).
-- [ ] Timeouts configurados en los clientes HTTP.
+- [x] `IOrdersClient` → `OrdersClient` (HTTP, con `OrderInfo`), probado contra el contrato de la sección 4.4. Se elimina `StubOrdersClient` (D-39).
+- [ ] `CorrelationIdDelegatingHandler` (hereda de `DelegatingHandler`) en los clientes HTTP de Products y Cart (Products ✅; falta Cart).
+- [ ] `DownstreamServiceHealthCheck` (implementa `IHealthCheck`) en `/health/ready` de Products (depende de Orders) y Cart (depende de Products) (Products ✅; falta Cart).
+- [ ] Timeouts configurados en los clientes HTTP (Products ✅ 5 segundos; falta Cart).
 
 Juan Pablo (Orders y Notifications):
 - [ ] `CorrelationIdDelegatingHandler` en los clientes HTTP de Orders y Notifications.

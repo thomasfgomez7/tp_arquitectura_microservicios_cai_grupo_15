@@ -301,7 +301,7 @@ En el **tercer** intento, en cambio, la cuenta todavía estaba activa: se verifi
 | `Infrastructure/UserRepositoryHealthCheck` | El check `persistencia` de `/health/ready` |
 | `Users.API.http` | Los requests de la demo |
 
-El resto (`ExceptionHandlers/`, middlewares, logging, Swagger y health checks) es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#8-mapa-de-archivos).
+El resto (`ExceptionHandlers/`, middlewares, logging, Swagger y health checks) es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#9-mapa-de-archivos).
 
 ### `tests/Users.API.Tests/`
 

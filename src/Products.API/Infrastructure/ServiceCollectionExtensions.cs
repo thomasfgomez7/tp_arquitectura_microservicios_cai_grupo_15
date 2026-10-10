@@ -12,12 +12,27 @@ namespace Products.API.Infrastructure;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddProductServices(this IServiceCollection services)
+    // Si Orders.API no responde en este tiempo, el DELETE termina en un 500 con PRD-005 (D-39).
+    // Mismo valor que los clientes de Orders y Notifications.
+    private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(5);
+
+    public static IServiceCollection AddProductServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IProductRepository>(_ => new InMemoryProductRepository(ProductSeedData.Create()));
-        services.AddSingleton<IOrdersClient, StubOrdersClient>();
         services.AddScoped<IProductService, ProductService>();
+
+        // Typed client: IHttpClientFactory crea y recicla los HttpClient (evita agotar conexiones) y le
+        // inyecta a OrdersClient uno ya configurado. El DelegatingHandler propaga el Correlation ID.
+        var ordersUrl = configuration["Services:OrdersApi:BaseUrl"]
+                        ?? throw new InvalidOperationException("Falta la configuración 'Services:OrdersApi:BaseUrl'.");
+        services.AddTransient<CorrelationIdDelegatingHandler>();
+        services.AddHttpClient<IOrdersClient, OrdersClient>(client =>
+            {
+                client.BaseAddress = new Uri(ordersUrl);
+                client.Timeout = ClientTimeout;
+            })
+            .AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
 
         return services;
     }

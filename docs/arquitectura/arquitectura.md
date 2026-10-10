@@ -26,10 +26,10 @@ flowchart LR
     orders -- "GET /api/products/{id}<br/>precio y stock" --> products
     orders -- "GET /api/users/{id}<br/>ORD-003" --> users
     notifications -- "GET /api/users/{id}<br/>NTF-001" --> users
-    products -. "GET /api/orders?productoId=<br/>PRD-004 (Etapa 9)" .-> orders
+    products -. "GET /api/orders?productoId=<br/>PRD-004" .-> orders
 ```
 
-La flecha punteada es la única dependencia en sentido inverso (Products ↔ Orders). Hasta la Etapa 9, Products usa `StubOrdersClient` y no llama a Orders.
+La flecha punteada es la única dependencia en sentido inverso (Products ↔ Orders): Products solo llama a Orders al borrar un producto. Si Orders no responde, el borrado falla con PRD-005 y no se hace (D-39).
 
 ---
 
@@ -113,12 +113,19 @@ classDiagram
         +HasActiveOrdersAsync(productId, ct) bool
     }
 
-    class StubOrdersClient {
-        siempre false (hasta la Etapa 9)
+    class OrdersClient {
+        GET /api/orders?productoId=
     }
 
-    class OrdersClient {
-        HTTP a Orders.API (Etapa 9)
+    class OrderInfo {
+        <<record>>
+        +Guid Id
+        +string Estado
+        +EstaActiva bool
+    }
+
+    class CorrelationIdDelegatingHandler {
+        agrega X-Correlation-Id
     }
 
     class TimeProvider {
@@ -169,8 +176,9 @@ classDiagram
     ProductService ..> TimeProvider
     InMemoryProductRepository ..|> IProductRepository
     InMemoryProductRepository ..> ProductSeedData : datos iniciales
-    StubOrdersClient ..|> IOrdersClient
     OrdersClient ..|> IOrdersClient
+    OrdersClient ..> OrderInfo : lee
+    OrdersClient ..> CorrelationIdDelegatingHandler : HttpClient con
 
     IProductService ..> CreateProductRequest : recibe
     IProductService ..> UpdateProductRequest : recibe

@@ -331,7 +331,7 @@ Si todo alcanzara, el servicio armaría la orden `Pendiente` con los precios de 
 | `Infrastructure/OrderRepositoryHealthCheck` | El check `persistencia` de `/health/ready` |
 | `appsettings.json` | Incluye `Services:UsersApi:BaseUrl` y `Services:ProductsApi:BaseUrl` |
 
-El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#8-mapa-de-archivos).
+El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#9-mapa-de-archivos).
 
 ### `tests/Orders.API.Tests/`
 

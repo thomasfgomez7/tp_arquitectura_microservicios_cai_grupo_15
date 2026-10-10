@@ -75,5 +75,22 @@ Content-Type: application/json
 }
 
 ### PRD-004: producto con órdenes activas → 409
-# No se puede provocar hasta la Etapa 9: StubOrdersClient responde siempre "sin órdenes activas".
-# Mientras tanto está cubierto por el test Delete_ProductoConOrdenesActivas_Devuelve409ConPRD004.
+# Requiere Users.API (5002) y Orders.API (5003) levantados. Primero se crea una orden Pendiente
+# con la Notebook en Orders; el X-Correlation-Id del DELETE aparece también en los logs de Orders.
+POST http://localhost:5003/api/orders
+Content-Type: application/json
+
+{
+  "usuarioId": "a1b2c3d4-0000-0000-0000-111122223333",
+  "items": [ { "productoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "cantidad": 1 } ]
+}
+
+### PRD-004: ahora el DELETE de la Notebook responde 409
+DELETE {{HostAddress}}/api/products/3fa85f64-5717-4562-b3fc-2c963f66afa6
+X-Correlation-Id: borrar-notebook
+
+### PRD-005: con Orders.API apagado, el DELETE responde 500 y no borra el producto (D-39)
+DELETE {{HostAddress}}/api/products/b2c3d4e5-0000-0000-0000-000000000004
+
+### /health/ready: con Orders.API apagado responde 200 "Degraded"
+GET {{HostAddress}}/health/ready

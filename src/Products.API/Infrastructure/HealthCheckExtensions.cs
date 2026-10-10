@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Products.API.Clients;
 
 namespace Products.API.Infrastructure;
 
 /// <summary>
 /// Health checks (sección 5.4 del enunciado):
 /// /health/live → el proceso está vivo (no depende de nada externo);
-/// /health/ready → puede atender requests (persistencia y, desde la Etapa 9, servicios de los que depende);
+/// /health/ready → puede atender requests (persistencia y Orders.API, del que depende el DELETE);
 /// /health → todos los checks.
 /// </summary>
 public static class HealthCheckExtensions
@@ -18,7 +19,14 @@ public static class HealthCheckExtensions
     {
         services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy("El servicio está en ejecución."), tags: [LiveTag])
-            .AddCheck<ProductRepositoryHealthCheck>("persistencia", tags: [ReadyTag]);
+            .AddCheck<ProductRepositoryHealthCheck>("persistencia", tags: [ReadyTag])
+            // Orders caído degrada el servicio pero no lo saca de servicio: solo falla el DELETE (D-24).
+            .Add(new HealthCheckRegistration(
+                "Orders.API",
+                provider => new DownstreamServiceHealthCheck(
+                    provider.GetRequiredService<IHttpClientFactory>(), nameof(IOrdersClient), "Orders.API"),
+                HealthStatus.Degraded,
+                [ReadyTag]));
 
         return services;
     }

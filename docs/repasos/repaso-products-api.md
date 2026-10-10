@@ -23,10 +23,11 @@ Los diagramas de clases están en [arquitectura.md](../arquitectura/arquitectura
 4. [Etapa 2 — Endpoints y contrato de errores](#4-etapa-2--endpoints-y-contrato-de-errores)
 5. [Etapa 3 — Logs y Correlation ID](#5-etapa-3--logs-y-correlation-id)
 6. [Etapa 4 — Swagger y Health Checks](#6-etapa-4--swagger-y-health-checks)
-7. [Recorrido completo de un request](#7-recorrido-completo-de-un-request)
-8. [Mapa de archivos](#8-mapa-de-archivos)
-9. [Preguntas probables de la defensa](#9-preguntas-probables-de-la-defensa)
-10. [Glosario](#10-glosario)
+7. [Etapa 9 — Integración con Orders.API](#7-etapa-9--integración-con-ordersapi)
+8. [Recorrido completo de un request](#8-recorrido-completo-de-un-request)
+9. [Mapa de archivos](#9-mapa-de-archivos)
+10. [Preguntas probables de la defensa](#10-preguntas-probables-de-la-defensa)
+11. [Glosario](#11-glosario)
 
 ---
 
@@ -224,6 +225,8 @@ PRD-004 necesita preguntarle a Orders si hay órdenes activas, pero Orders todav
 
 La regla PRD-004 **ya está implementada y testeada**: los tests usan un doble que responde "sí hay órdenes" y verifican el 409.
 
+> **Cómo terminó:** en la Etapa 9 `StubOrdersClient` se eliminó y lo reemplazó `OrdersClient` (sección 7). `ProductService` no cambió ni una línea: es la prueba de que la interfaz cumplió su función.
+
 ### 3.10 Inyección de dependencias y ciclos de vida
 
 `ServiceCollectionExtensions.AddProductServices()` es el **único lugar** que sabe qué implementación corresponde a cada interfaz:
@@ -231,7 +234,7 @@ La regla PRD-004 **ya está implementada y testeada**: los tests usan un doble q
 ```csharp
 services.AddSingleton(TimeProvider.System);
 services.AddSingleton<IProductRepository>(_ => new InMemoryProductRepository(ProductSeedData.Create()));
-services.AddSingleton<IOrdersClient, StubOrdersClient>();
+services.AddSingleton<IOrdersClient, StubOrdersClient>(); // reemplazado por OrdersClient en la Etapa 9
 services.AddScoped<IProductService, ProductService>();
 ```
 
@@ -533,7 +536,7 @@ Al heredar, ASP.NET lo trata como un `ProducesResponseType` común: declara que 
 | Endpoint | Pregunta que responde | Checks |
 |---|---|---|
 | `/health/live` | ¿El proceso está vivo? | `self`: siempre Healthy si responde |
-| `/health/ready` | ¿Puede atender requests? | `persistencia`: el repositorio responde. En la Etapa 9 se suman Orders y los demás servicios de los que depende. |
+| `/health/ready` | ¿Puede atender requests? | `persistencia`: el repositorio responde. Desde la Etapa 9, también `Orders.API` (sección 7.4). |
 | `/health` | Estado completo | Todos |
 
 **¿Por qué separar `live` y `ready`?** Es la convención de los orquestadores como Kubernetes:
@@ -551,7 +554,101 @@ Los códigos HTTP siguen la regla de ASP.NET: Healthy y Degraded responden 200; 
 
 ---
 
-## 7. Recorrido completo de un request
+## 7. Etapa 9 — Integración con Orders.API
+
+### 7.1 Qué se hizo
+
+Products deja de usar el stub y le pregunta de verdad a Orders si un producto tiene órdenes activas. Además, el Correlation ID viaja en las llamadas salientes y `/health/ready` informa si Orders responde.
+
+| Clase | Qué hace |
+|---|---|
+| `IOrdersClient` → `OrdersClient` (`Clients/`) | `GET /api/orders?productoId={id}` (D-07) y decide si alguna orden está activa. Reemplaza a `StubOrdersClient`, que se eliminó |
+| `OrderInfo` (`Clients/`) | Lo que Products lee de una orden: `Id` y `Estado`, más la regla `EstaActiva` (Pendiente o Confirmada) |
+| `CorrelationIdDelegatingHandler` (`Infrastructure/`) | Agrega el `X-Correlation-Id` del request actual a cada llamada saliente |
+| `DownstreamServiceHealthCheck` (`Infrastructure/`) | Llama al `/health/live` de un servicio del que se depende |
+
+La configuración nueva es `Services:OrdersApi:BaseUrl` (`http://localhost:5003/`) y un timeout de 5 segundos, el mismo valor que usan Orders y Notifications.
+
+### 7.2 `OrdersClient`: un 404 ya no es un dato
+
+En Cart, un 404 de Products significa "ese producto no existe" y se convierte en `null`. Acá no hay 404 posible: `GET /api/orders?productoId=` responde **200 con `[]`** cuando no hay órdenes (D-37). Entonces cualquier status de error es una falla de Orders:
+
+```csharp
+using var response = await httpClient.GetAsync($"api/orders?productoId={productId}", cancellationToken);
+response.EnsureSuccessStatusCode();   // 500, 503, timeout... → excepción → 500 PRD-005
+
+var orders = await response.Content.ReadFromJsonAsync<List<OrderInfo>>(cancellationToken) ?? [];
+return orders.Any(order => order.EstaActiva);
+```
+
+**¿Qué pasa si Orders está caído? (D-39)** El `DELETE` responde 500 con PRD-005 y el producto **no se borra**. Es "fallar cerrado": si no se puede saber si hay órdenes activas, borrar podría dejar órdenes apuntando a un producto inexistente, y eso no se puede deshacer. Responder un error, en cambio, solo pide reintentar más tarde.
+
+**¿Por qué `EstaActiva` está en `OrderInfo` y no en `ProductService`?** Porque es una pregunta sobre una orden ("¿esta orden está activa?"), y `OrderInfo` es la clase que conoce los estados de Orders. `ProductService` sigue preguntando solo `HasActiveOrdersAsync`: no sabe que existen estados ni HTTP.
+
+### 7.3 `CorrelationIdDelegatingHandler`: el ID cruza servicios
+
+Un `DelegatingHandler` es un eslabón en la cadena que recorre cada request de un `HttpClient`, antes de llegar a la red. Se engancha al registrar el cliente:
+
+```csharp
+services.AddTransient<CorrelationIdDelegatingHandler>();
+services.AddHttpClient<IOrdersClient, OrdersClient>(client => { ... })
+    .AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
+```
+
+`OrdersClient` no sabe que el header existe: es un aspecto transversal y queda fuera del cliente. El handler lee el ID con `ICorrelationIdAccessor`, que se apoya en `IHttpContextAccessor`. Esto importa porque `IHttpClientFactory` crea los handlers en **su propio scope**, distinto del scope del request: un servicio Scoped del request no sería el mismo adentro del handler. Por eso el accessor es Singleton (sección 5.3).
+
+Si no hay request en curso (por ejemplo, durante un health check), no hay ID que propagar y el header no se agrega.
+
+**Resultado, probado con los dos servicios levantados:**
+
+```
+[INF] Products.API borrar-notebook DELETE /api/products/3fa85f64-… Inicio del request
+[WRN] Products.API borrar-notebook DELETE /api/products/3fa85f64-… Regla de negocio violada PRD-004: …
+[INF] Orders.API   borrar-notebook GET /api/orders Inicio del request
+[INF] Orders.API   borrar-notebook GET /api/orders Fin del request: respondió 200 en 5.08 ms
+[INF] Products.API borrar-notebook DELETE /api/products/3fa85f64-… Fin del request: respondió 409 en 9.82 ms
+```
+
+### 7.4 `DownstreamServiceHealthCheck`: Orders en `/health/ready`
+
+```csharp
+.Add(new HealthCheckRegistration(
+    "Orders.API",
+    provider => new DownstreamServiceHealthCheck(
+        provider.GetRequiredService<IHttpClientFactory>(), nameof(IOrdersClient), "Orders.API"),
+    HealthStatus.Degraded,
+    [ReadyTag]));
+```
+
+Tres decisiones:
+
+- **Usa el mismo `HttpClient` que `OrdersClient`** (`CreateClient(nameof(IOrdersClient))`), así verifica la misma URL y el mismo timeout que se usan de verdad.
+- **Consulta `/health/live` de Orders, no `/health/ready`.** Si consultara `ready`, Products dependería también de Users (porque el `ready` de Orders consulta a Users), y una caída se propagaría por toda la cadena.
+- **Una falla da `Degraded`, no `Unhealthy`.** Con Orders caído, Products sigue sirviendo el catálogo; lo único que falla es el `DELETE`. `Degraded` responde 200 (D-24), así que el servicio sigue recibiendo tráfico.
+
+La misma clase sirve para Cart (que depende de Products): recibe el nombre del cliente y del servicio por constructor.
+
+### 7.5 Cómo se testea
+
+| Nivel | Qué reemplaza | Qué prueba |
+|---|---|---|
+| **Unitario** (`OrdersClientTests`, `CorrelationIdDelegatingHandlerTests`, `DownstreamServiceHealthCheckTests`) | La red, con `FakeHttpHandler` | La URL del contrato, cómo se lee cada estado, qué pasa con cada error |
+| **Integración** (`OrdersIntegrationTests`, `HealthCheckTests`) | Solo la red de `OrdersClient`, con `FakeOrdersApi` | PRD-004 de punta a punta, que el ID llegue a Orders, `Degraded` con Orders caído |
+| **Configuración** (`DependencyInjectionTests`) | Nada | Que esté registrado `OrdersClient` con la URL y el timeout reales |
+
+`ProductsApiFactory` reemplaza **solo el último eslabón**, el que toca la red:
+
+```csharp
+services.AddHttpClient(nameof(IOrdersClient)).ConfigurePrimaryHttpMessageHandler(OrdersApi.CrearHandler);
+```
+
+Todo lo demás es el código real: `OrdersClient`, su `DelegatingHandler`, la deserialización de las órdenes y el health check. En Cart reemplazamos todo el `IProductsClient` por un fake; acá el test cubre más código de producción con el mismo esfuerzo.
+
+> **Para la defensa:** "Products le pregunta a Orders con un typed client. Si Orders está caído, no borramos: respondemos 500 y el health check muestra el servicio degradado. El Correlation ID viaja en un header que agrega un DelegatingHandler, así un DELETE aparece con el mismo ID en los logs de los dos servicios."
+
+---
+
+## 8. Recorrido completo de un request
 
 Seguimos `GET /api/products/99` con el header `X-Correlation-Id: demo-error` por todas las clases. Si este recorrido se entiende, se entiende todo Products.API.
 
@@ -605,14 +702,14 @@ Resultado: el cliente recibe el JSON del contrato, y en los logs quedan tres lí
 
 ---
 
-## 8. Mapa de archivos
+## 9. Mapa de archivos
 
 ### `src/Products.API/`
 
 | Carpeta / archivo | Qué hace | Etapa |
 |---|---|---|
 | `Program.cs` | Arma la API: registra servicios y define el orden del pipeline | 0–4 |
-| `appsettings.json` / `appsettings.Development.json` | Niveles de log, archivo de log, detalle de errores por entorno | 0, 2, 3 |
+| `appsettings.json` / `appsettings.Development.json` | Niveles de log, archivo de log, detalle de errores por entorno y URL de Orders | 0, 2, 3, 9 |
 | **Models/** `Product.cs` | La entidad del dominio | 1 |
 | **DTOs/** `CreateProductRequest`, `UpdateProductRequest` | Lo que entra, con validaciones y ejemplos para Swagger | 1, 4 |
 | **DTOs/** `ProductResponse` | Lo que sale; `FromEntity` convierte la entidad | 1, 4 |
@@ -620,20 +717,22 @@ Resultado: el cliente recibe el JSON del contrato, y en los logs quedan tres lí
 | **Services/** `IProductService` → `ProductService` | Reglas de negocio (PRD-001, 003, 004 y filtros) | 1 |
 | **Repositories/** `IProductRepository` → `InMemoryProductRepository` | Persistencia en memoria, thread-safe | 1 |
 | **Repositories/** `ProductSeedData` | Productos de la demo con IDs fijos | 1 |
-| **Clients/** `IOrdersClient` → `StubOrdersClient` | Consulta a Orders (provisoria hasta la Etapa 9) | 1 |
+| **Clients/** `IOrdersClient` → `OrdersClient`, `OrderInfo` | Consulta a Orders por HTTP: ¿el producto tiene órdenes activas? | 1, 9 |
 | **Controllers/** `ProductsController` | Los 5 endpoints, documentados para Swagger | 2, 4 |
 | **Exceptions/** `ErrorCodes` y las 3 excepciones | El catálogo y los tipos de error | 1 |
 | **ExceptionHandlers/** los 4 handlers | Excepción → respuesta HTTP + log | 2, 3 |
 | **ExceptionHandlers/** `ErrorResponseWriter` | Único lugar que arma el JSON de error | 2–4 |
 | **ExceptionHandlers/** `ModelStateErrorMessage` | Errores de validación → mensaje de PRD-002 | 2 |
 | **ExceptionHandlers/** `ErrorHandlingOptions` | Detalle de los 500 según entorno | 2 |
-| **Infrastructure/** `ServiceCollectionExtensions` | Registra servicios, Correlation ID y manejo de errores | 1–3 |
+| **Infrastructure/** `ServiceCollectionExtensions` | Registra servicios, el cliente de Orders, Correlation ID y manejo de errores | 1–3, 9 |
 | **Infrastructure/** `LoggingExtensions` | Configuración de Serilog | 3 |
 | **Infrastructure/** `CorrelationIdMiddleware`, `ICorrelationIdAccessor` → `CorrelationIdAccessor` | Correlation ID | 3 |
 | **Infrastructure/** `RequestLoggingMiddleware` | Logs de inicio y fin de request | 3 |
 | **Infrastructure/** `HttpContextItemKeys` | Nombres de lo que se comparte en `HttpContext.Items` | 3 |
 | **Infrastructure/** `SwaggerExtensions`, `ProducesErrorAttribute`, `ErrorExamplesOperationFilter` | Swagger y ejemplos de error | 4 |
 | **Infrastructure/** `HealthCheckExtensions`, `ProductRepositoryHealthCheck`, `HealthCheckResponseWriter` | Health checks | 4 |
+| **Infrastructure/** `CorrelationIdDelegatingHandler` | Propaga el Correlation ID a las llamadas salientes | 9 |
+| **Infrastructure/** `DownstreamServiceHealthCheck` | Verifica que Orders responda (`/health/ready`) | 9 |
 
 ### `tests/Products.API.Tests/`
 
@@ -641,19 +740,23 @@ Resultado: el cliente recibe el JSON del contrato, y en los logs quedan tres lí
 |---|---|---|
 | `Unit/Services/ProductServiceTests` | Reglas de negocio con dobles de repositorio y de Orders | 14 |
 | `Unit/Repositories/InMemoryProductRepositoryTests` | Guardar, buscar, actualizar y eliminar | 5 |
-| `Integration/ProductsEndpointsTests` | Los 5 endpoints y el catálogo PRD-001 a PRD-004 por HTTP | 15 |
+| `Unit/Clients/OrdersClientTests` | URL del contrato, órdenes activas por estado, errores de Orders | 9 |
+| `Unit/Infrastructure/CorrelationIdDelegatingHandlerTests` | Header agregado, sin request en curso, sin duplicar | 3 |
+| `Unit/Infrastructure/DownstreamServiceHealthCheckTests` | `/health/live` del servicio, Healthy y Degraded | 4 |
+| `Integration/ProductsEndpointsTests` | Los 5 endpoints y el catálogo PRD-001 a PRD-003 por HTTP | 14 |
+| `Integration/OrdersIntegrationTests` | PRD-004 con el `OrdersClient` real, Orders caído y Correlation ID propagado | 7 |
 | `Integration/UnexpectedErrorTests` | PRD-005 y detalle por entorno | 3 |
 | `Integration/CorrelationIdTests` | Header recibido, generado, inválido y en errores | 5 |
 | `Integration/LoggingTests` | Inicio y fin, Warning y Error con `ErrorCode` | 4 |
 | `Integration/SwaggerTests` | Status, resúmenes, tags y ejemplos | 18 |
-| `Integration/HealthCheckTests` | Los 3 endpoints y la persistencia caída | 5 |
-| `Integration/DependencyInjectionTests` | Que el contenedor resuelva `IProductService` | 1 |
+| `Integration/HealthCheckTests` | Los 3 endpoints, la persistencia caída y Orders caído | 8 |
+| `Integration/DependencyInjectionTests` | Que el contenedor resuelva `IProductService` y registre `OrdersClient` | 2 |
 | `Integration/SmokeTests` | Que la API arranque | 1 |
-| Auxiliares: `ProductsApiFactory`, `ErrorContractAssert`, `CollectingSink` | Fábrica sin archivo de log, verificación del contrato y sink en memoria | — |
+| Auxiliares: `ProductsApiFactory`, `FakeOrdersApi`, `FakeHttpHandler`, `ErrorContractAssert`, `CollectingSink` | Fábrica sin archivo de log y con Orders falso, red falsa, verificación del contrato y sink en memoria | — |
 
 ---
 
-## 9. Preguntas probables de la defensa
+## 10. Preguntas probables de la defensa
 
 **¿Por qué el controller no tiene try/catch?**
 Porque el manejo de errores está centralizado. El servicio lanza excepciones de dominio con su `errorCode`, y `UseExceptionHandler` las traduce con un `IExceptionHandler` por tipo. Así el formato de error está en un solo lugar (`ErrorResponseWriter`) y el controller solo traduce HTTP.
@@ -670,11 +773,14 @@ Solo donde aportan algo: servicios, persistencia, otros microservicios y lo que 
 **¿Cómo van a pasar a la librería de persistencia de la cátedra?**
 Se crea una clase nueva que implementa `IProductRepository` usando la librería y se cambia una línea en `ServiceCollectionExtensions`. `ProductService`, el controller y los tests unitarios no cambian.
 
-**¿Cómo prueban PRD-004 si Orders no existe?**
-En los tests reemplazamos `IOrdersClient` por un doble que responde "hay órdenes activas". En la API real, `StubOrdersClient` responde "no hay" hasta que en la Etapa 9 se implemente `OrdersClient` con HTTP.
+**¿Cómo prueban PRD-004 sin levantar Orders?**
+Los tests unitarios de `ProductService` usan un doble de `IOrdersClient`. Los de integración usan el `OrdersClient` real y reemplazan solo la red con `FakeOrdersApi`, un Orders falso que responde con el mismo formato. Además lo probamos a mano con los servicios levantados.
+
+**¿Qué pasa si Orders está caído cuando quieren borrar un producto?**
+Responde 500 con PRD-005 y el producto no se borra (D-39): sin saber si hay órdenes activas no se puede aplicar la regla, y un borrado no se puede deshacer. `/health/ready` muestra el servicio `Degraded`, no `Unhealthy`, porque el resto de los endpoints sigue funcionando.
 
 **¿Qué es el Correlation ID y cómo lo propagan?**
-Es un ID único por request que aparece en todos sus logs, en el header `X-Correlation-Id` de la respuesta y en el body de error. Se propaga en la Etapa 9: un `DelegatingHandler` lo agrega a cada llamada HTTP saliente, y así se puede seguir un request a través de varios servicios.
+Es un ID único por request que aparece en todos sus logs, en el header `X-Correlation-Id` de la respuesta y en el body de error. `CorrelationIdDelegatingHandler` lo agrega a cada llamada HTTP saliente, y así un `DELETE` aparece con el mismo ID en los logs de Products y de Orders.
 
 **¿Por qué `/api/products/99` da 404 y no 400?**
 Porque el enunciado lo muestra así: un id que no corresponde a ningún producto es "no encontrado", sea un GUID inexistente o un texto que no es GUID. Por eso la ruta recibe el id como texto (D-17).
@@ -689,11 +795,11 @@ Porque es estado global: cuando varias APIs corren en el mismo proceso, como en 
 `live` dice si el proceso responde; `ready`, si puede atender requests porque sus dependencias funcionan. Si se cae la persistencia, `ready` da 503 y `live` sigue en 200: el servicio deja de recibir tráfico, pero no se reinicia.
 
 **¿Qué es TDD y les sirvió?**
-Escribir el test antes que el código y verlo fallar primero. Nos sirvió para encontrar tres bugs (el formato de PRD-002, los logs perdidos y el content type de Swagger), y nos permite cambiar código con confianza: 71 tests verifican Products en menos de un segundo.
+Escribir el test antes que el código y verlo fallar primero. Nos sirvió para encontrar tres bugs (el formato de PRD-002, los logs perdidos y el content type de Swagger), y nos permite cambiar código con confianza: 97 tests verifican Products en un par de segundos.
 
 ---
 
-## 10. Glosario
+## 11. Glosario
 
 | Término | Significado |
 |---|---|
@@ -714,4 +820,6 @@ Escribir el test antes que el código y verlo fallar primero. Nos sirvió para e
 | **`LogContext`** | Propiedades de Serilog que se agregan automáticamente a todos los logs dentro de un bloque `using`. |
 | **Correlation ID** | Identificador único de un request, compartido por todos los servicios que participan. |
 | **Health check** | Endpoint que informa el estado del servicio (Healthy, Degraded o Unhealthy). |
-| **Stub** | Implementación provisoria que devuelve respuestas fijas, como `StubOrdersClient`. |
+| **Stub** | Implementación provisoria que devuelve respuestas fijas, como `StubOrdersClient` hasta la Etapa 9. |
+| **DelegatingHandler** | Eslabón que procesa cada request de un `HttpClient` antes de que llegue a la red; se usa para aspectos transversales como agregar un header. |
+| **Degraded** | Estado de un health check: el servicio funciona, pero con una dependencia caída. Responde 200. |

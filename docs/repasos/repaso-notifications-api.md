@@ -276,7 +276,7 @@ Si el usuario existiera, el servicio crearía la notificación como `Pendiente`,
 | `Infrastructure/NotificationRepositoryHealthCheck` | El check `persistencia` de `/health/ready` |
 | `appsettings.json` | Incluye `Services:UsersApi:BaseUrl` |
 
-El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#8-mapa-de-archivos).
+El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#9-mapa-de-archivos).
 
 ### `tests/Notifications.API.Tests/`
 

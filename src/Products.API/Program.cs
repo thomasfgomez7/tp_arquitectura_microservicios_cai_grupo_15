@@ -7,7 +7,7 @@ builder.Services.AddSerilogLogging(builder.Configuration, builder.Environment);
 
 builder.Services.AddControllers();
 builder.Services.AddSwaggerDocumentation(builder.Environment);
-builder.Services.AddProductServices();
+builder.Services.AddProductServices(builder.Configuration);
 builder.Services.AddCorrelationId();
 builder.Services.AddErrorHandling(builder.Configuration);
 builder.Services.AddProductHealthChecks();

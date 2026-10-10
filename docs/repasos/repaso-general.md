@@ -230,8 +230,8 @@ El costo es duplicar código. Lo aceptamos a cambio de que cada servicio sea ind
 Orders llama a Products (precio y stock) y Products llama a Orders (PRD-004). Es la única dependencia en los dos sentidos. Es aceptable porque:
 
 - son llamadas puntuales, no un flujo continuo entre los dos;
-- Products la tiene detrás de `IOrdersClient`, y hoy usa `StubOrdersClient`, que responde siempre "sin órdenes activas";
-- si Orders se cae, solo falla la eliminación de productos, no todo Products.
+- Products la tiene detrás de `IOrdersClient`, y desde la Etapa 9 la implementa `OrdersClient` con HTTP real;
+- si Orders se cae, solo falla la eliminación de productos (500 con PRD-005, sin borrar, D-39), no todo Products: su `/health/ready` queda `Degraded`.
 
 Conviene tenerla clara para la defensa, porque es una pregunta típica.
 
@@ -239,7 +239,7 @@ Conviene tenerla clara para la defensa, porque es una pregunta típica.
 
 Las llamadas HTTP se hacen con `IHttpClientFactory`, siempre detrás de una interfaz (`IProductsClient`, `IUsersClient`, `IOrdersClient`), con la URL de cada servicio en `appsettings.json`. Cart → Products ya funciona así (sección 8).
 
-Falta, para la Etapa 9, que cada llamada lleve el `X-Correlation-Id` del request original. Así, un request que pasa por Orders, Users y Products dejaría en los logs de los tres el mismo ID.
+En la Etapa 9 cada llamada empieza a llevar el `X-Correlation-Id` del request original, con un `CorrelationIdDelegatingHandler`. Products → Orders ya lo hace: un `DELETE` de un producto aparece con el mismo ID en los logs de los dos servicios ([repaso de Products, sección 7.3](repaso-products-api.md#73-correlationiddelegatinghandler-el-id-cruza-servicios)). Faltan Cart, Orders y Notifications.
 
 ---
 
@@ -402,7 +402,7 @@ Todo se corrigió el 07/10 (`f927227`, `54a8efa`). Después se revisaron los dos
 
 | Servicio | Responsable | Estado | Tests |
 |---|---|---|---|
-| **Products.API** | Thomas | ✅ **Completo** (Etapas 1–4). Es la plantilla. Falta la integración real con Orders (Etapa 9). | 71 |
+| **Products.API** | Thomas | ✅ **Completo** (Etapas 1–4). Es la plantilla. Integrado con Orders (Etapa 9): `OrdersClient` real, Correlation ID saliente y Orders en `/health/ready`. | 97 |
 | **Users.API** | Juan Pablo | ✅ **Completo** (Etapa 5). Es el servicio del que dependen Orders y Notifications. Sin tareas en la Etapa 9. | 72 |
 | **Notifications.API** | Juan Pablo | ✅ **Completo** (Etapa 8). Consume a Users. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
 | **Cart.API** | Thomas | ✅ **Completo** (Etapa 6). Primer servicio que consume a otro. Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
@@ -510,11 +510,9 @@ Las 38 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 **Thomas (Bloque 5, Etapa 9 en Products y Cart):**
 
-1. PR de `develop` a `main` para cerrar el **hito H2** (Products y Users completos).
-2. `CorrelationIdDelegatingHandler`: que el `X-Correlation-Id` viaje en las llamadas de Cart a Products.
-3. `DownstreamServiceHealthCheck`: Products en el `/health/ready` de Cart, y Orders en el de Products.
-4. Timeouts en los clientes HTTP.
-5. `OrdersClient` real para PRD-004, que reemplaza a `StubOrdersClient`. El endpoint de Orders ya existe; falta confirmar el formato (punto 1 de Juan Pablo).
+1. ~~PR de `develop` a `main` para cerrar el **hito H2**~~ (PR #2, mergeado el 08/10).
+2. ~~Products: `OrdersClient` real para PRD-004, Correlation ID saliente, Orders en `/health/ready` y timeout~~ (Etapa 9, parte 1). El formato de `GET /api/orders?productoId=` coincidió con el contrato; el `OrdersClient` solo lee `id` y `estado`.
+3. Cart: `CorrelationIdDelegatingHandler`, Products en `/health/ready` y timeout de `ProductsClient` (Etapa 9, parte 2).
 
 **Después:** las capturas de Swagger y la parte del README que falta (Etapa 10), y el ensayo de la defensa (Etapa 11).
 
@@ -522,7 +520,7 @@ Las 38 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 ## 15. Preguntas generales de la defensa
 
-Las preguntas específicas de cada API están en su repaso: [Products](repaso-products-api.md#9-preguntas-probables-de-la-defensa), [Cart](repaso-cart-api.md#11-preguntas-probables-de-la-defensa), [Users](repaso-users-api.md#11-preguntas-probables-de-la-defensa), [Notifications](repaso-notifications-api.md#11-preguntas-probables-de-la-defensa) y [Orders](repaso-orders-api.md#11-preguntas-probables-de-la-defensa). Estas son las del proyecto en general.
+Las preguntas específicas de cada API están en su repaso: [Products](repaso-products-api.md#10-preguntas-probables-de-la-defensa), [Cart](repaso-cart-api.md#11-preguntas-probables-de-la-defensa), [Users](repaso-users-api.md#11-preguntas-probables-de-la-defensa), [Notifications](repaso-notifications-api.md#11-preguntas-probables-de-la-defensa) y [Orders](repaso-orders-api.md#11-preguntas-probables-de-la-defensa). Estas son las del proyecto en general.
 
 **¿Por qué microservicios y no una sola API?**
 Lo pide el enunciado, y además permite que cada servicio se desarrolle, pruebe y despliegue por separado. El costo es la comunicación por HTTP entre servicios, con sus fallas posibles. Para eso están los health checks, los timeouts y el Correlation ID.

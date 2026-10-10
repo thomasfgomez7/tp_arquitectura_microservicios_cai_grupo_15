@@ -380,7 +380,7 @@ Si el stock alcanzara, en el paso 7 el servicio agregaría el item, pondría la 
 | `Infrastructure/ErrorExamplesOperationFilter` | Ejemplos de Swagger, generalizado para cualquier parámetro de ruta |
 | `appsettings.json` | Incluye `Services:ProductsApi:BaseUrl` |
 
-El resto (`ExceptionHandlers/`, middlewares, logging, Swagger y health checks) es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#8-mapa-de-archivos).
+El resto (`ExceptionHandlers/`, middlewares, logging, Swagger y health checks) es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#9-mapa-de-archivos).
 
 ### `tests/Cart.API.Tests/`
 
