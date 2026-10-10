@@ -1,8 +1,8 @@
 # Repaso general del proyecto
 
-Explicación de todo lo hecho en el repositorio hasta el cierre de Users.API y Notifications.API (07/10/2026): de dónde partimos, cómo planificamos, cómo nos organizamos, qué arquitectura elegimos y por qué, qué aprendimos de las revisiones de código y en qué estado está cada servicio.
+Explicación de todo lo hecho en el repositorio hasta el cierre de Orders.API (10/10/2026): de dónde partimos, cómo planificamos, cómo nos organizamos, qué arquitectura elegimos y por qué, qué aprendimos de las revisiones de código y en qué estado está cada servicio.
 
-Este documento da la **vista de conjunto**. El detalle técnico de cómo se construyó la plantilla (controllers, manejo de errores, logs, Swagger y health checks) está en [repaso-products-api.md](repaso-products-api.md); lo propio de cada API, en su repaso: [Products](repaso-products-api.md), [Cart](repaso-cart-api.md), [Users](repaso-users-api.md) y [Notifications](repaso-notifications-api.md).
+Este documento da la **vista de conjunto**. El detalle técnico de cómo se construyó la plantilla (controllers, manejo de errores, logs, Swagger y health checks) está en [repaso-products-api.md](repaso-products-api.md); lo propio de cada API, en su repaso: [Products](repaso-products-api.md), [Cart](repaso-cart-api.md), [Users](repaso-users-api.md), [Notifications](repaso-notifications-api.md) y [Orders](repaso-orders-api.md).
 
 | Documento | Para qué sirve |
 |---|---|
@@ -13,6 +13,7 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 | [repaso-cart-api.md](repaso-cart-api.md) | Cómo se construyó Cart.API, el primer servicio que consume a otro |
 | [repaso-users-api.md](repaso-users-api.md) | Cómo se construyó Users.API: contraseñas, bloqueo y el contrato con Orders y Notifications |
 | [repaso-notifications-api.md](repaso-notifications-api.md) | Cómo se construyó Notifications.API: envío simulado y cliente de Users |
+| [repaso-orders-api.md](repaso-orders-api.md) | Cómo se construyó Orders.API: máquina de estados y clientes de Users y Products |
 | **Este documento** | La vista de conjunto del proyecto |
 
 ---
@@ -27,7 +28,7 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 6. [La estructura del repositorio](#6-la-estructura-del-repositorio)
 7. [La plantilla común de cada API](#7-la-plantilla-común-de-cada-api)
 8. [Cart.API: el primer servicio que consume a otro](#8-cartapi-el-primer-servicio-que-consume-a-otro)
-9. [Users.API y Notifications.API](#9-usersapi-y-notificationsapi)
+9. [Users.API, Notifications.API y Orders.API](#9-usersapi-notificationsapi-y-ordersapi)
 10. [La documentación del repositorio](#10-la-documentación-del-repositorio)
 11. [Revisiones de código: qué aprendimos](#11-revisiones-de-código-qué-aprendimos)
 12. [Estado actual de cada servicio](#12-estado-actual-de-cada-servicio)
@@ -63,8 +64,9 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 | 07/10 | Juan Pablo | Correcciones de la tercera revisión: `UsersClient` real, validaciones en español, repositorios thread-safe, datos semilla y tests de integración | `f927227`, `54a8efa` |
 | 07/10 | Juan Pablo | Alineación con el plan: métodos en inglés, enums de Notifications y acciones del controller como en la plantilla | `aba9c44`, `76b4cee` |
 | 07/10 | Juan Pablo | **Etapas 5 y 8:** plantilla transversal replicada. Users.API y Notifications.API completos | `348fb38` |
+| 10/10 | Juan Pablo | **Etapa 7:** Orders.API en cuatro tandas: dominio y máquina de estados, servicio, clientes HTTP y capa HTTP con la plantilla. Orders.API completo | `f34b388` … `52d05e1` |
 
-En tres semanas se pasó de una plantilla vacía a cuatro servicios completos (Products, Cart, Users y Notifications, 290 tests entre los cuatro), dos de ellos consumiendo a otro. Falta Orders.
+En poco más de tres semanas se pasó de una plantilla vacía a los cinco servicios completos (426 tests entre los cinco), tres de ellos consumiendo a otros. Falta la integración de punta a punta (Etapa 9).
 
 ---
 
@@ -305,9 +307,9 @@ Cart.API es el segundo servicio terminado y el primero que **depende de otro**: 
 
 ---
 
-## 9. Users.API y Notifications.API
+## 9. Users.API, Notifications.API y Orders.API
 
-Los dos servicios de Juan Pablo que ya están completos. El detalle está en sus repasos: **[repaso-users-api.md](repaso-users-api.md)** y **[repaso-notifications-api.md](repaso-notifications-api.md)**. Lo importante, a nivel proyecto:
+Los tres servicios de Juan Pablo. El detalle está en sus repasos: **[repaso-users-api.md](repaso-users-api.md)**, **[repaso-notifications-api.md](repaso-notifications-api.md)** y **[repaso-orders-api.md](repaso-orders-api.md)**. Lo importante, a nivel proyecto:
 
 | Tema | Qué se hizo | Más detalle |
 |---|---|---|
@@ -318,8 +320,12 @@ Los dos servicios de Juan Pablo que ya están completos. El detalle está en sus
 | **Envío simulado** | Detrás de `INotificationSender`: un envío real sería una clase nueva, sin tocar el servicio | [Repaso de Notifications, sección 3.2](repaso-notifications-api.md#32-el-envío-detrás-de-una-interfaz) |
 | **Huecos nuevos** | D-29 (Users caído → NTF-004), D-30 (el GET no consulta a Users), D-31 (se notifica a usuarios bloqueados) y D-32 (validación del email) | [Repaso de Notifications, sección 2](repaso-notifications-api.md#2-antes-de-programar-los-huecos-del-enunciado) |
 | **La plantilla se replicó otra vez** | Copiada de Cart cambiando solo el namespace, los códigos de error y el health check | Repasos, sección 4.2 / 5.2 |
+| **Orders: la máquina de estados** | Una tabla en `OrderStatusTransitions` con las transiciones permitidas; cualquier otra es ORD-006. Testeada con las 25 combinaciones | [Repaso de Orders, sección 3.2](repaso-orders-api.md#32-la-máquina-de-estados-orderstatustransitions) |
+| **Orders consume a dos servicios** | Users (ORD-003) y Products (precio, ORD-004 y ORD-005), con clientes copiados de Notifications y Cart y timeout de 5 segundos. Todos los chequeos se hacen antes de guardar | [Repaso de Orders, sección 3.3](repaso-orders-api.md#33-las-reglas-de-orderservice) |
+| **El contrato con Products** | `GET /api/orders?productoId=` (D-07), que Thomas va a usar para PRD-004 en la Etapa 9 | [Repaso de Orders, sección 10](repaso-orders-api.md#10-lo-que-falta-etapa-9) |
+| **Huecos de Orders** | D-33 (`FechaActualizacion`), D-34 (items repetidos), D-35 (usuarios bloqueados), D-36 (servicio caído → ORD-007), D-37 (filtro inválido → `[]`) y D-38 (el 409 del POST) | [Repaso de Orders, sección 2](repaso-orders-api.md#2-antes-de-programar-los-huecos-del-enunciado) |
 
-> **Para la defensa:** "Users es el servicio del que dependen otros, por eso su contrato está fijado en un test. Notifications le pregunta a Users si el destinatario existe; un 404 es NTF-001 y una falla de Users es NTF-004."
+> **Para la defensa:** "Users es el servicio del que dependen otros, por eso su contrato está fijado en un test. Notifications le pregunta a Users si el destinatario existe; un 404 es NTF-001 y una falla de Users es NTF-004. Orders le pregunta a Users y a Products antes de guardar nada, toma el precio de Products y controla los cambios de estado con una tabla de transiciones."
 
 ---
 
@@ -400,18 +406,18 @@ Todo se corrigió el 07/10 (`f927227`, `54a8efa`). Después se revisaron los dos
 | **Users.API** | Juan Pablo | ✅ **Completo** (Etapa 5). Es el servicio del que dependen Orders y Notifications. Sin tareas en la Etapa 9. | 72 |
 | **Notifications.API** | Juan Pablo | ✅ **Completo** (Etapa 8). Consume a Users. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
 | **Cart.API** | Thomas | ✅ **Completo** (Etapa 6). Primer servicio que consume a otro. Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
-| **Orders.API** | Juan Pablo | ⬜ Solo el esqueleto (Bloque 5). | 1 (humo) |
+| **Orders.API** | Juan Pablo | ✅ **Completo** (Etapa 7). Consume a Users y Products. Falta propagar el Correlation ID y sumar Users y Products a `/health/ready` (Etapa 9). | 136 |
 
 **Pendientes externos:**
 
 - La librería de persistencia de la cátedra (D-03).
-- Consultar con los docentes los endpoints adicionales (D-06, D-07) y el código USR-007.
+- Consultar con los docentes los endpoints adicionales (D-06, D-07), el código USR-007 y el 409 de `POST /api/orders` (D-38).
 
 ---
 
 ## 13. Las decisiones, agrupadas por tema
 
-Las 32 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
+Las 38 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
 
 **Estructura y entorno**
 
@@ -470,6 +476,17 @@ Las 32 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 | D-31 | Se notifica a usuarios bloqueados | El bloqueo impide el login, no recibir avisos |
 | D-32 | Email con `[RegularExpression]` | Un email vacío da un solo error |
 
+**Orders.API**
+
+| # | Decisión | En una línea |
+|---|---|---|
+| D-33 | `FechaActualizacion` en `Order` | La respuesta de `PUT /status` la incluye |
+| D-34 | Items repetidos se unen | El stock se valida contra la suma, como D-13 |
+| D-35 | Un usuario bloqueado puede comprar | Mismo criterio que D-31 |
+| D-36 | Users o Products caídos → 500 con ORD-007 | Mismo criterio que D-28 y D-29 |
+| D-37 | Filtro que no es GUID → `[]` | El listado solo admite 200 y 500 |
+| D-38 | El POST no devuelve 409 | Ningún código del catálogo lo produce al crear |
+
 **Observabilidad y documentación**
 
 | # | Decisión | En una línea |
@@ -484,11 +501,12 @@ Las 32 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 ## 14. Próximos pasos
 
-**Juan Pablo (Bloque 5, Etapa 7):**
+**Juan Pablo (Bloque 6, Etapa 9 en Orders y Notifications):**
 
-1. **Orders.API completo**, replicando lo de Users y Notifications: `UsersClient` (se puede copiar el de Notifications) y `ProductsClient` (el de Cart), `OrderStatusTransitions` y ORD-001 a ORD-007.
-2. **`GET /api/orders?productoId=` (D-07):** Thomas lo necesita para el `OrdersClient` real de PRD-004. Conviene coordinar con él el formato antes de arrancar.
-3. Después, la Etapa 9 en Orders y Notifications: `CorrelationIdDelegatingHandler` y `DownstreamServiceHealthCheck`.
+1. **Confirmar con Thomas el formato de `GET /api/orders?productoId=` (D-07, D-37)** que va a leer su `OrdersClient`, y si Orders tiene una orden semilla con la Notebook para mostrar PRD-004.
+2. `CorrelationIdDelegatingHandler` en los clientes de Orders y Notifications.
+3. `DownstreamServiceHealthCheck`: Users y Products en el `/health/ready` de Orders, y Users en el de Notifications.
+4. Prueba con los servicios levantados juntos. Los timeouts ya están (5 segundos).
 
 **Thomas (Bloque 5, Etapa 9 en Products y Cart):**
 
@@ -496,7 +514,7 @@ Las 32 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 2. `CorrelationIdDelegatingHandler`: que el `X-Correlation-Id` viaje en las llamadas de Cart a Products.
 3. `DownstreamServiceHealthCheck`: Products en el `/health/ready` de Cart, y Orders en el de Products.
 4. Timeouts en los clientes HTTP.
-5. `OrdersClient` real para PRD-004, que reemplaza a `StubOrdersClient`. Depende del punto 2 de Juan Pablo.
+5. `OrdersClient` real para PRD-004, que reemplaza a `StubOrdersClient`. El endpoint de Orders ya existe; falta confirmar el formato (punto 1 de Juan Pablo).
 
 **Después:** las capturas de Swagger y la parte del README que falta (Etapa 10), y el ensayo de la defensa (Etapa 11).
 
@@ -504,7 +522,7 @@ Las 32 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 ## 15. Preguntas generales de la defensa
 
-Las preguntas específicas de cada API están en su repaso: [Products](repaso-products-api.md#9-preguntas-probables-de-la-defensa), [Cart](repaso-cart-api.md#11-preguntas-probables-de-la-defensa), [Users](repaso-users-api.md#11-preguntas-probables-de-la-defensa) y [Notifications](repaso-notifications-api.md#11-preguntas-probables-de-la-defensa). Estas son las del proyecto en general.
+Las preguntas específicas de cada API están en su repaso: [Products](repaso-products-api.md#9-preguntas-probables-de-la-defensa), [Cart](repaso-cart-api.md#11-preguntas-probables-de-la-defensa), [Users](repaso-users-api.md#11-preguntas-probables-de-la-defensa), [Notifications](repaso-notifications-api.md#11-preguntas-probables-de-la-defensa) y [Orders](repaso-orders-api.md#11-preguntas-probables-de-la-defensa). Estas son las del proyecto en general.
 
 **¿Por qué microservicios y no una sola API?**
 Lo pide el enunciado, y además permite que cada servicio se desarrolle, pruebe y despliegue por separado. El costo es la comunicación por HTTP entre servicios, con sus fallas posibles. Para eso están los health checks, los timeouts y el Correlation ID.
@@ -528,4 +546,4 @@ Por servicios: cada uno es dueño de los suyos y los contratos entre servicios s
 Que cada tipo de test detecta un tipo de error distinto. Los tests unitarios no detectaron dependencias sin registrar ni un repositorio con el ciclo de vida equivocado. Por eso cada API tiene un test que levanta la app real y verifica el contenedor.
 
 **¿Cómo resolvieron lo que el enunciado no define?**
-Con decisiones explícitas y documentadas: 24 en el registro del plan, cada una con su motivo. Las que agregan endpoints (D-06, D-07) quedaron marcadas para consultarlas con los docentes.
+Con decisiones explícitas y documentadas: 38 en el registro del plan, cada una con su motivo. Las que agregan endpoints (D-06, D-07) o se apartan de la tabla del enunciado (D-38) quedaron marcadas para consultarlas con los docentes.
