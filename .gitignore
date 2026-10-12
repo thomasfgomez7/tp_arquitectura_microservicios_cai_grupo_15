@@ -52,3 +52,8 @@ packages/
 # =========================
 # appsettings.Development.json se versiona: define el nivel de detalle de errores por entorno y no contiene secretos (D-04).
 appsettings.Local.json
+# =========================
+# Python (scripts/capture-swagger.py)
+# =========================
+.venv/
+__pycache__/
