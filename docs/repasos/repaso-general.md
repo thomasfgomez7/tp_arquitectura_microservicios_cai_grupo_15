@@ -66,7 +66,7 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 | 07/10 | Juan Pablo | **Etapas 5 y 8:** plantilla transversal replicada. Users.API y Notifications.API completos | `348fb38` |
 | 10/10 | Juan Pablo | **Etapa 7:** Orders.API en cuatro tandas: dominio y máquina de estados, servicio, clientes HTTP y capa HTTP con la plantilla. Orders.API completo | `f34b388` … `52d05e1` |
 | 10/10 | Thomas | Corrección del `detail` de ORD-006 (revisión de Orders) y **Etapa 9 (parte 1):** `OrdersClient` real para PRD-004, Correlation ID saliente y Orders en `/health/ready` de Products | `0941f3a`, `c5d0790` |
-| 10/10 | Thomas | **Etapa 9 (parte 2):** lo mismo en Cart con Products. La Etapa 9 de Thomas queda completa | — |
+| 12/10 | Thomas | **Etapa 9 (parte 2):** lo mismo en Cart con Products. La Etapa 9 de Thomas queda completa | `ebbab94` |
 
 En poco más de tres semanas se pasó de una plantilla vacía a los cinco servicios completos (463 tests entre los cinco), tres de ellos consumiendo a otros. La Etapa 9 ya integró Products con Orders y Cart con Products; faltan Orders y Notifications.
 
