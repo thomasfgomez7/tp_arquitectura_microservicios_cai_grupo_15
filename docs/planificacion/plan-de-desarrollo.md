@@ -73,6 +73,7 @@ ECommerce.slnx
 │   ├── arquitectura/             # diagramas del sistema, de clases y de secuencia
 │   ├── repasos/                  # repaso general + un repaso por API (repaso-<servicio>-api.md)
 │   └── capturas/                 # capturas de Swagger para el entregable (Etapa 10)
+├── scripts/                      # start-all.sh / start-all.ps1 y capture-swagger.py (Etapa 10)
 └── README.md
 ```
 
@@ -763,10 +764,10 @@ Juan Pablo (Orders y Notifications):
 **Responsables:** Thomas y Juan Pablo · **Bloque:** 6
 
 Thomas:
-- [ ] README: cómo ejecutar cada servicio, tabla de puertos y descripción de cada servicio.
-- [ ] Diagrama de arquitectura (ASCII o imagen) en el README.
-- [ ] Script para levantar los cinco servicios juntos.
-- [ ] Capturas de Swagger UI con ejemplos de error (`errorCode` y `errorMessage`) en `docs/capturas/`.
+- [x] README: cómo ejecutar cada servicio, tabla de puertos, descripción de cada servicio y datos de prueba.
+- [x] Diagrama de arquitectura en el README (Mermaid, con una versión ASCII).
+- [x] Script para levantar los cinco servicios juntos: `scripts/start-all.sh` (macOS y Linux) y `scripts/start-all.ps1` (Windows).
+- [x] Capturas de Swagger UI con ejemplos de error (`errorCode` y `errorMessage`) en `docs/capturas/`, generadas con `scripts/capture-swagger.py`.
 
 Juan Pablo:
 - [ ] Tabla completa de códigos de error en el README, incluyendo USR-007.

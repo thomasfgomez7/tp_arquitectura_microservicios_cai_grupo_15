@@ -14,7 +14,7 @@
 | | [repaso-users-api.md](repasos/repaso-users-api.md) | Cómo se construyó Users.API: contraseñas, bloqueo y el contrato del que dependen otros servicios |
 | | [repaso-notifications-api.md](repasos/repaso-notifications-api.md) | Cómo se construyó Notifications.API: envío simulado y cliente de Users |
 | | [repaso-orders-api.md](repasos/repaso-orders-api.md) | Cómo se construyó Orders.API: máquina de estados y clientes de Users y Products |
-| `capturas/` | *(Etapa 10)* | Capturas de Swagger UI con ejemplos de error, para el entregable |
+| [`capturas/`](capturas/) | [README.md](capturas/README.md) | Capturas de Swagger UI con una respuesta de error real por servicio (entregable de la sección 9.2) |
 
 ## Repasos por API
 
