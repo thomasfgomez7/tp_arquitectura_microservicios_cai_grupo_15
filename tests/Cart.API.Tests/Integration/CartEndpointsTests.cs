@@ -1,13 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
-using Cart.API.Clients;
 using Cart.API.DTOs;
 using Cart.API.Exceptions;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 
 namespace Cart.API.Tests.Integration;
 
@@ -32,8 +27,8 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var carrito = await response.Content.ReadFromJsonAsync<CartResponse>();
         Assert.Equal(Guid.Parse(UsuarioSemilla), carrito!.UsuarioId);
-        Assert.Contains(carrito.Items, i => i.ProductoId == FakeProductsClient.Notebook && i.Cantidad == 1);
-        Assert.Contains(carrito.Items, i => i.ProductoId == FakeProductsClient.Auriculares && i.Cantidad == 3);
+        Assert.Contains(carrito.Items, i => i.ProductoId == FakeProductsApi.Notebook && i.Cantidad == 1);
+        Assert.Contains(carrito.Items, i => i.ProductoId == FakeProductsApi.Auriculares && i.Cantidad == 3);
     }
 
     [Fact]
@@ -63,7 +58,7 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
     {
         var usuario = Guid.NewGuid();
 
-        var response = await _client.PostAsJsonAsync($"/api/cart/{usuario}/items", Agregar(FakeProductsClient.Notebook, 2));
+        var response = await _client.PostAsJsonAsync($"/api/cart/{usuario}/items", Agregar(FakeProductsApi.Notebook, 2));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var carrito = await response.Content.ReadFromJsonAsync<CartResponse>();
@@ -88,7 +83,7 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
     {
         var usuario = Guid.NewGuid();
 
-        var response = await _client.PostAsJsonAsync($"/api/cart/{usuario}/items", Agregar(FakeProductsClient.Taladro, 5));
+        var response = await _client.PostAsJsonAsync($"/api/cart/{usuario}/items", Agregar(FakeProductsApi.Taladro, 5));
 
         var body = await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.UnprocessableEntity, ErrorCodes.CRT_003,
             instance: $"/api/cart/{usuario}/items", errorMessage: "Stock insuficiente. Disponible: 2, solicitado: 5.");
@@ -103,7 +98,7 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
     {
         var usuario = Guid.NewGuid();
 
-        var response = await _client.PostAsJsonAsync($"/api/cart/{usuario}/items", Agregar(FakeProductsClient.Notebook, cantidad));
+        var response = await _client.PostAsJsonAsync($"/api/cart/{usuario}/items", Agregar(FakeProductsApi.Notebook, cantidad));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.BadRequest, ErrorCodes.CRT_004,
             instance: $"/api/cart/{usuario}/items", errorMessage: "La cantidad debe ser mayor a cero.");
@@ -136,30 +131,16 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
             instance: $"/api/cart/{usuario}/items", errorMessage: "El cuerpo de la solicitud no es un JSON válido.");
     }
 
-    [Fact]
-    public async Task AddItem_ProductsNoResponde_Devuelve500ConCRT005()
-    {
-        // D-28: una falla de Products.API es un error de infraestructura.
-        var productsCaido = Substitute.For<IProductsClient>();
-        productsCaido.GetProductAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new HttpRequestException("Connection refused"));
-        var client = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton(productsCaido))).CreateClient();
-        var usuario = Guid.NewGuid();
-
-        var response = await client.PostAsJsonAsync($"/api/cart/{usuario}/items", Agregar(FakeProductsClient.Notebook, 1));
-
-        await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.InternalServerError, ErrorCodes.CRT_005,
-            instance: $"/api/cart/{usuario}/items", errorMessage: "Error interno al procesar el carrito.");
-    }
+    // Products caído (CRT-005, D-28) se prueba con el ProductsClient real en ProductsIntegrationTests.
 
     // ---------- PUT /api/cart/{userId}/items/{productId} ----------
 
     [Fact]
     public async Task UpdateItem_ProductoEnElCarrito_Devuelve200ConLaCantidadNueva()
     {
-        var usuario = await CrearCarritoAsync(FakeProductsClient.Notebook, 1);
+        var usuario = await CrearCarritoAsync(FakeProductsApi.Notebook, 1);
 
-        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsClient.Notebook}", Cantidad(4));
+        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsApi.Notebook}", Cantidad(4));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var carrito = await response.Content.ReadFromJsonAsync<CartResponse>();
@@ -171,51 +152,51 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
     {
         var usuario = Guid.NewGuid();
 
-        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsClient.Notebook}", Cantidad(1));
+        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsApi.Notebook}", Cantidad(1));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.NotFound, ErrorCodes.CRT_001,
-            instance: $"/api/cart/{usuario}/items/{FakeProductsClient.Notebook}");
+            instance: $"/api/cart/{usuario}/items/{FakeProductsApi.Notebook}");
     }
 
     [Fact]
     public async Task UpdateItem_ProductoQueNoEstaEnElCarrito_Devuelve404ConCRT002()
     {
-        var usuario = await CrearCarritoAsync(FakeProductsClient.Notebook, 1);
+        var usuario = await CrearCarritoAsync(FakeProductsApi.Notebook, 1);
 
-        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsClient.Auriculares}", Cantidad(1));
+        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsApi.Auriculares}", Cantidad(1));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.NotFound, ErrorCodes.CRT_002,
-            instance: $"/api/cart/{usuario}/items/{FakeProductsClient.Auriculares}",
+            instance: $"/api/cart/{usuario}/items/{FakeProductsApi.Auriculares}",
             errorMessage: "El producto no se encuentra en el carrito.");
     }
 
     [Fact]
     public async Task UpdateItem_StockInsuficiente_Devuelve422ConCRT003()
     {
-        var usuario = await CrearCarritoAsync(FakeProductsClient.Taladro, 1);
+        var usuario = await CrearCarritoAsync(FakeProductsApi.Taladro, 1);
 
-        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsClient.Taladro}", Cantidad(3));
+        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsApi.Taladro}", Cantidad(3));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.UnprocessableEntity, ErrorCodes.CRT_003,
-            instance: $"/api/cart/{usuario}/items/{FakeProductsClient.Taladro}",
+            instance: $"/api/cart/{usuario}/items/{FakeProductsApi.Taladro}",
             errorMessage: "Stock insuficiente. Disponible: 2, solicitado: 3.");
     }
 
     [Fact]
     public async Task UpdateItem_CantidadCero_Devuelve400ConCRT004()
     {
-        var usuario = await CrearCarritoAsync(FakeProductsClient.Notebook, 1);
+        var usuario = await CrearCarritoAsync(FakeProductsApi.Notebook, 1);
 
-        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsClient.Notebook}", Cantidad(0));
+        var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/{FakeProductsApi.Notebook}", Cantidad(0));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.BadRequest, ErrorCodes.CRT_004,
-            instance: $"/api/cart/{usuario}/items/{FakeProductsClient.Notebook}");
+            instance: $"/api/cart/{usuario}/items/{FakeProductsApi.Notebook}");
     }
 
     [Fact]
     public async Task UpdateItem_ProductIdQueNoEsGuid_Devuelve404ConCRT002()
     {
-        var usuario = await CrearCarritoAsync(FakeProductsClient.Notebook, 1);
+        var usuario = await CrearCarritoAsync(FakeProductsApi.Notebook, 1);
 
         var response = await _client.PutAsJsonAsync($"/api/cart/{usuario}/items/xyz", Cantidad(1));
 
@@ -228,9 +209,9 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
     [Fact]
     public async Task RemoveItem_ProductoEnElCarrito_Devuelve204YLoQuita()
     {
-        var usuario = await CrearCarritoAsync(FakeProductsClient.Notebook, 1);
+        var usuario = await CrearCarritoAsync(FakeProductsApi.Notebook, 1);
 
-        var response = await _client.DeleteAsync($"/api/cart/{usuario}/items/{FakeProductsClient.Notebook}");
+        var response = await _client.DeleteAsync($"/api/cart/{usuario}/items/{FakeProductsApi.Notebook}");
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         var carrito = await _client.GetFromJsonAsync<CartResponse>($"/api/cart/{usuario}");
@@ -242,21 +223,21 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
     {
         var usuario = Guid.NewGuid();
 
-        var response = await _client.DeleteAsync($"/api/cart/{usuario}/items/{FakeProductsClient.Notebook}");
+        var response = await _client.DeleteAsync($"/api/cart/{usuario}/items/{FakeProductsApi.Notebook}");
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.NotFound, ErrorCodes.CRT_001,
-            instance: $"/api/cart/{usuario}/items/{FakeProductsClient.Notebook}");
+            instance: $"/api/cart/{usuario}/items/{FakeProductsApi.Notebook}");
     }
 
     [Fact]
     public async Task RemoveItem_ProductoQueNoEstaEnElCarrito_Devuelve404ConCRT002()
     {
-        var usuario = await CrearCarritoAsync(FakeProductsClient.Notebook, 1);
+        var usuario = await CrearCarritoAsync(FakeProductsApi.Notebook, 1);
 
-        var response = await _client.DeleteAsync($"/api/cart/{usuario}/items/{FakeProductsClient.Auriculares}");
+        var response = await _client.DeleteAsync($"/api/cart/{usuario}/items/{FakeProductsApi.Auriculares}");
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.NotFound, ErrorCodes.CRT_002,
-            instance: $"/api/cart/{usuario}/items/{FakeProductsClient.Auriculares}");
+            instance: $"/api/cart/{usuario}/items/{FakeProductsApi.Auriculares}");
     }
 
     // ---------- DELETE /api/cart/{userId} ----------
@@ -264,7 +245,7 @@ public class CartEndpointsTests(CartApiFactory factory) : IClassFixture<CartApiF
     [Fact]
     public async Task Clear_CarritoExistente_Devuelve204YLuegoGetDevuelveCRT001()
     {
-        var usuario = await CrearCarritoAsync(FakeProductsClient.Notebook, 1);
+        var usuario = await CrearCarritoAsync(FakeProductsApi.Notebook, 1);
 
         var response = await _client.DeleteAsync($"/api/cart/{usuario}");
 

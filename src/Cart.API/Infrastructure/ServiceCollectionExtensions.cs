@@ -12,17 +12,27 @@ namespace Cart.API.Infrastructure;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
+    // Si Products.API no responde en este tiempo, el request termina en un 500 con CRT-005 (D-28).
+    // Mismo valor que los clientes de Products, Orders y Notifications.
+    private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(5);
+
     public static IServiceCollection AddCartServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ICartRepository>(_ => new InMemoryCartRepository(CartSeedData.Create()));
         services.AddScoped<ICartService, CartService>();
 
-        // Typed client: IHttpClientFactory crea y recicla los HttpClient (evita agotar conexiones) y
-        // le inyecta a ProductsClient uno ya configurado con la URL de Products.API.
+        // Typed client: IHttpClientFactory crea y recicla los HttpClient (evita agotar conexiones) y le
+        // inyecta a ProductsClient uno ya configurado. El DelegatingHandler propaga el Correlation ID.
         var productsUrl = configuration["Services:ProductsApi:BaseUrl"]
                           ?? throw new InvalidOperationException("Falta la configuración 'Services:ProductsApi:BaseUrl'.");
-        services.AddHttpClient<IProductsClient, ProductsClient>(client => client.BaseAddress = new Uri(productsUrl));
+        services.AddTransient<CorrelationIdDelegatingHandler>();
+        services.AddHttpClient<IProductsClient, ProductsClient>(client =>
+            {
+                client.BaseAddress = new Uri(productsUrl);
+                client.Timeout = ClientTimeout;
+            })
+            .AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
 
         return services;
     }

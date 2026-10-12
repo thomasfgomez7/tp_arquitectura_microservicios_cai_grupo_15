@@ -96,3 +96,16 @@ Content-Type: application/json
   "productoId": "{{Auriculares}}",
   "cantidad": 1
 }
+
+### Etapa 9: el X-Correlation-Id viaja a Products (buscar "demo-cart" en los logs de los dos servicios)
+POST {{HostAddress}}/api/cart/{{UsuarioNuevo}}/items
+Content-Type: application/json
+X-Correlation-Id: demo-cart
+
+{
+  "productoId": "{{Notebook}}",
+  "cantidad": 1
+}
+
+### /health/ready: incluye Products.API; con Products detenido responde 200 "Degraded"
+GET {{HostAddress}}/health/ready

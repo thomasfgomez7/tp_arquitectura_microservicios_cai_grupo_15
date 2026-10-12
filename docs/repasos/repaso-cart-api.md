@@ -24,7 +24,7 @@ Los diagramas de clases y de secuencia de Cart están en [arquitectura.md](../ar
 7. [La prueba con los dos servicios levantados](#7-la-prueba-con-los-dos-servicios-levantados)
 8. [Recorrido completo de un request](#8-recorrido-completo-de-un-request)
 9. [Mapa de archivos](#9-mapa-de-archivos)
-10. [Lo que falta: Etapa 9](#10-lo-que-falta-etapa-9)
+10. [Etapa 9: integración con Products](#10-etapa-9-integración-con-products)
 11. [Preguntas probables de la defensa](#11-preguntas-probables-de-la-defensa)
 
 ---
@@ -70,7 +70,8 @@ En dos partes con TDD, cada una con su commit:
 | Parte | Qué | Tests nuevos | Fallaron en rojo | Total al terminar |
 |---|---|---|---|---|
 | 1 (`0405e34`) | Dominio, reglas, repositorio y `ProductsClient` | 30 | 30 | 31 |
-| 2 (`e4a56ea`) | Controller, plantilla replicada y tests de integración | 59 | 58 | **90** |
+| 2 (`e4a56ea`) | Controller, plantilla replicada y tests de integración | 59 | 58 | 90 |
+| Etapa 9 | Correlation ID saliente, Products en `/health/ready` y timeout (sección 10) | 12 | 5 de integración (los 7 unitarios no compilaban) | **101** |
 
 En la parte 2, uno de los tests nuevos pasó en rojo por casualidad: verificaba que *no* apareciera el mensaje de una excepción interna, y en un 404 vacío tampoco aparece. Con el endpoint ya armado, prueba algo real.
 
@@ -254,7 +255,7 @@ El problema nuevo: si los tests de Cart llamaran a Products de verdad, solo pasa
 | Nivel | Qué prueba | Cómo | Tests |
 |---|---|---|---|
 | **1. El cliente HTTP** | Que `ProductsClient` arme bien la URL e interprete cada status | Un `HttpMessageHandler` falso reemplaza la red | 7 |
-| **2. Cart completo** | La lógica de Cart a través de HTTP | La API en memoria con `FakeProductsClient` en lugar del cliente real | 59 |
+| **2. Cart completo** | La lógica de Cart a través de HTTP | La API en memoria con `FakeProductsApi` en lugar de la red (desde la Etapa 9) | 59 + 5 |
 | **3. Los dos servicios juntos** | Que la integración real funcione | Prueba manual con Products y Cart levantados (sección 7) | — |
 
 ### 6.1 Nivel 1: el handler falso
@@ -272,15 +273,18 @@ Assert.Null(producto);   // el 404 se interpreta como "no existe", sin intentar 
 
 El handler falso también guarda el request que recibió, así un test verifica que la URL sea exactamente `http://products.test/api/products/{id}`. Hay casos para 200, 404, 400, 500, 503 y "no responde".
 
-### 6.2 Nivel 2: `CartApiFactory` y `FakeProductsClient`
+### 6.2 Nivel 2: `CartApiFactory` y `FakeProductsApi`
 
 ```csharp
-builder.ConfigureTestServices(services => services.AddSingleton<IProductsClient, FakeProductsClient>());
+builder.ConfigureTestServices(services =>
+    services.AddHttpClient(nameof(IProductsClient)).ConfigurePrimaryHttpMessageHandler(ProductsApi.CrearHandler));
 ```
 
-`FakeProductsClient` tiene un catálogo fijo con los mismos productos semilla de Products: la notebook con stock 10, los auriculares con 25 y el taladro con 2. Los tests de integración usan esos IDs y esos stocks, por ejemplo: "agregar 5 taladros → 422, Disponible: 2".
+`FakeProductsApi` es un Products.API falso que responde `GET /api/products/{id}` y `GET /health/live` con un catálogo fijo: los mismos productos semilla de Products, la notebook con stock 10, los auriculares con 25 y el taladro con 2. Los tests de integración usan esos IDs y esos stocks, por ejemplo: "agregar 5 taladros → 422, Disponible: 2".
 
-Para CRT-005, un test reemplaza el cliente por un doble que **lanza** `HttpRequestException`, como si Products estuviera caído.
+Para CRT-005, un test pone `ProductsApi.Caido = true` y el Products falso lanza `HttpRequestException`, como si estuviera caído.
+
+> **Cómo era antes de la Etapa 9:** el factory reemplazaba **todo** `IProductsClient` por un `FakeProductsClient`. Funcionaba para probar la lógica de Cart, pero el `ProductsClient` real nunca corría en los tests de integración. Al sumar el `CorrelationIdDelegatingHandler`, ese enfoque ya no alcanzaba: el handler vive *dentro* del `HttpClient`, y con el cliente reemplazado no habría forma de probarlo. Ahora se reemplaza solo la red, igual que en Products con `FakeOrdersApi`, y los 59 tests de endpoints pasaron sin cambios, salvo el nombre de la clase de los IDs.
 
 ### 6.3 La excepción: `DependencyInjectionTests`
 
@@ -310,7 +314,7 @@ Con Products (5001) y Cart (5004) corriendo a la vez:
 
 La última fila es importante: **una caída de Products no tira abajo a Cart**. Solo fallan las operaciones que necesitan consultar el stock.
 
-**Lo que mostró que falta:** el primer request llegó a Cart con `X-Correlation-Id: demo-cart`, pero en los logs de Products apareció con **otro** ID. El Correlation ID todavía no viaja en las llamadas salientes (sección 10).
+**Lo que mostró que faltaba:** el primer request llegó a Cart con `X-Correlation-Id: demo-cart`, pero en los logs de Products apareció con **otro** ID. El Correlation ID no viajaba en las llamadas salientes. Se resolvió en la Etapa 9 (sección 10).
 
 ---
 
@@ -375,8 +379,10 @@ Si el stock alcanzara, en el paso 7 el servicio agregaría el item, pondría la 
 | `Clients/ProductInfo` | Los datos de un producto que le importan a Cart |
 | `Controllers/CartController` | Los 5 endpoints |
 | `Exceptions/ErrorCodes` | CRT-001 a CRT-005 |
-| `Infrastructure/ServiceCollectionExtensions` | Registra todo, incluido el typed client con la URL de Products |
+| `Infrastructure/ServiceCollectionExtensions` | Registra todo, incluido el typed client con la URL de Products, el timeout y el `DelegatingHandler` |
 | `Infrastructure/CartRepositoryHealthCheck` | El check `persistencia` de `/health/ready` |
+| `Infrastructure/CorrelationIdDelegatingHandler` | Propaga el Correlation ID a las llamadas a Products (Etapa 9) |
+| `Infrastructure/DownstreamServiceHealthCheck` | El check `Products.API` de `/health/ready` (Etapa 9) |
 | `Infrastructure/ErrorExamplesOperationFilter` | Ejemplos de Swagger, generalizado para cualquier parámetro de ruta |
 | `appsettings.json` | Incluye `Services:ProductsApi:BaseUrl` |
 
@@ -389,25 +395,45 @@ El resto (`ExceptionHandlers/`, middlewares, logging, Swagger y health checks) e
 | `Unit/Services/CartServiceTests` | Todas las reglas del carrito, con el repositorio real y Products como doble | 18 |
 | `Unit/Clients/ProductsClientTests` | URL, interpretación de 200/404/4xx/5xx y falta de respuesta | 7 |
 | `Unit/Repositories/InMemoryCartRepositoryTests` | Buscar, guardar, reemplazar y eliminar | 5 |
-| `Integration/CartEndpointsTests` | Los 5 endpoints y CRT-001 a CRT-005 por HTTP | 22 |
+| `Unit/Infrastructure/CorrelationIdDelegatingHandlerTests` | Header agregado, sin request en curso, sin duplicar | 3 |
+| `Unit/Infrastructure/DownstreamServiceHealthCheckTests` | `/health/live` de Products, Healthy y Degraded | 4 |
+| `Integration/CartEndpointsTests` | Los 5 endpoints y CRT-001 a CRT-004 por HTTP | 21 |
+| `Integration/ProductsIntegrationTests` | Products caído (CRT-005) y Correlation ID propagado | 3 |
 | `Integration/SwaggerTests` | Status de cada endpoint, resúmenes, tags y ejemplos por código | 19 |
 | `Integration/CorrelationIdTests` | Header recibido, generado, inválido y en errores | 5 |
 | `Integration/LoggingTests` | Inicio y fin, Warning y Error con `ErrorCode` | 4 |
-| `Integration/HealthCheckTests` | Los 3 endpoints y la persistencia caída | 4 |
+| `Integration/HealthCheckTests` | Los 3 endpoints, la persistencia caída y Products caído | 6 |
 | `Integration/UnexpectedErrorTests` | CRT-005 y el detalle por entorno | 3 |
-| `Integration/DependencyInjectionTests` | Configuración real: servicio y typed client con su URL | 2 |
+| `Integration/DependencyInjectionTests` | Configuración real: servicio y typed client con su URL y su timeout | 2 |
 | `Integration/SmokeTests` | Que la API arranque | 1 |
-| Auxiliares: `CartApiFactory` (con `FakeProductsClient`), `ErrorContractAssert`, `CollectingSink` | — | — |
+| Auxiliares: `CartApiFactory` (con `FakeProductsApi`), `FakeHttpHandler`, `ErrorContractAssert`, `CollectingSink` | — | — |
 
 ---
 
-## 10. Lo que falta: Etapa 9
+## 10. Etapa 9: integración con Products
 
-| Pendiente | Por qué | Cómo |
+Los tres pendientes que dejó la parte 2 se resolvieron con las mismas dos clases que se crearon para Products ([repaso de Products, sección 7](repaso-products-api.md#7-etapa-9--integración-con-ordersapi)), copiadas en Cart porque no se comparte código entre servicios (D-05):
+
+| Pendiente | Por qué | Cómo quedó |
 |---|---|---|
-| Propagar el Correlation ID a Products | La prueba de la sección 7 mostró dos IDs distintos para el mismo request | Un `CorrelationIdDelegatingHandler` que agrega el header a cada llamada de `ProductsClient` |
-| Products en `/health/ready` | Hoy `ready` solo verifica la persistencia; Cart no está "listo" si Products no responde | Un `DownstreamServiceHealthCheck` que consulta `/health/live` de Products |
-| Timeout en `ProductsClient` | Hoy, si Products tarda, Cart espera el timeout por defecto de .NET (100 segundos) | Configurar `HttpClient.Timeout` en el registro del typed client |
+| Propagar el Correlation ID a Products | La prueba de la sección 7 mostró dos IDs distintos para el mismo request | `CorrelationIdDelegatingHandler` enganchado al typed client con `AddHttpMessageHandler` |
+| Products en `/health/ready` | `ready` solo verificaba la persistencia | `DownstreamServiceHealthCheck` consulta `/health/live` de Products; si no responde, `Degraded` |
+| Timeout en `ProductsClient` | Si Products tardaba, Cart esperaba el timeout por defecto de .NET (100 segundos) | `HttpClient.Timeout` de 5 segundos, el mismo valor que en los demás servicios |
+
+**¿Por qué `Degraded` y no `Unhealthy`?** Con Products caído, Cart puede mostrar un carrito, quitar un producto o vaciarlo; solo fallan las altas y los cambios de cantidad, que necesitan el stock. `Degraded` responde 200 (D-24), así que Cart sigue recibiendo tráfico.
+
+**Resultado con los dos servicios levantados:**
+
+```
+[INF] Cart.API     agregar-al-carrito POST /api/cart/11111111-…/items Inicio del request
+[INF] Products.API agregar-al-carrito GET /api/products/3fa85f64-… Inicio del request
+[INF] Products.API agregar-al-carrito GET /api/products/3fa85f64-… Fin del request: respondió 200 en 14.6 ms
+[INF] Cart.API     agregar-al-carrito POST /api/cart/11111111-…/items Fin del request: respondió 200 en 28.96 ms
+```
+
+Con Products apagado, `GET /api/cart/{userId}` sigue respondiendo 200 y `/health/ready` informa `Degraded`.
+
+**El cambio en los tests (sección 6.2):** para poder probar el `DelegatingHandler`, el factory pasó de reemplazar todo el cliente a reemplazar solo la red. Los 5 tests de integración nuevos fallaron en rojo antes de registrar el handler, el health check y el timeout; los 59 de endpoints siguieron en verde con el `ProductsClient` real.
 
 ---
 
@@ -426,7 +452,10 @@ Porque "el producto no existe" es una respuesta válida del negocio, no una fall
 Porque crear un `HttpClient` por request agota los puertos del sistema bajo carga, y reutilizar uno para siempre ignora cambios de DNS. La fábrica recicla las conexiones y le da a `ProductsClient` un cliente ya configurado con la URL de `appsettings.json`.
 
 **¿Cómo testean Cart sin levantar Products?**
-En tres niveles: `ProductsClient` con un handler HTTP falso, Cart completo con un `FakeProductsClient` de catálogo fijo y, por último, una prueba manual con los dos servicios levantados. Así los tests de Cart no dependen de Products ni se rompen por sus bugs.
+En tres niveles: `ProductsClient` con un handler HTTP falso, Cart completo con un `FakeProductsApi` que reemplaza solo la red (el `ProductsClient` y su `DelegatingHandler` son los reales) y, por último, una prueba manual con los dos servicios levantados. Así los tests de Cart no dependen de Products ni se rompen por sus bugs.
+
+**¿Cómo siguen un request que pasa por Cart y Products?**
+Con el Correlation ID: `CorrelationIdDelegatingHandler` lo agrega a la llamada a Products, así el `POST` de Cart y el `GET` de Products aparecen con el mismo ID en los logs de los dos servicios.
 
 **Si agrego un producto que ya está en el carrito, ¿qué pasa?**
 Se suma la cantidad (D-13), y el stock se valida contra el **total**. Si tengo 2 y agrego 2 con stock 3, responde CRT-003 con "solicitado: 4". En cambio, `PUT` reemplaza la cantidad y valida solo la nueva.

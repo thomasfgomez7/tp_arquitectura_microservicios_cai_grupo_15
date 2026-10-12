@@ -291,7 +291,7 @@ Cart.API repite la plantilla de Products y suma la primera **comunicación entre
 
 ### 5.1 Diagrama de clases
 
-`CartService` depende de `IProductsClient`, no de HTTP. `ProductsClient` recibe un `HttpClient` ya configurado por `IHttpClientFactory` con la URL de `appsettings.json`. En los tests de integración, `FakeProductsClient` reemplaza al cliente real.
+`CartService` depende de `IProductsClient`, no de HTTP. `ProductsClient` recibe un `HttpClient` ya configurado por `IHttpClientFactory` con la URL de `appsettings.json`, un timeout de 5 segundos y el `CorrelationIdDelegatingHandler`. En los tests de integración solo se reemplaza la red, con `FakeProductsApi`.
 
 ```mermaid
 classDiagram
@@ -343,8 +343,12 @@ classDiagram
         GET api/products/id
     }
 
-    class FakeProductsClient {
-        catálogo fijo (solo en tests)
+    class CorrelationIdDelegatingHandler {
+        agrega X-Correlation-Id
+    }
+
+    class DownstreamServiceHealthCheck {
+        GET health/live de Products
     }
 
     class IHttpClientFactory {
@@ -380,8 +384,9 @@ classDiagram
     CartService ..> IProductsClient
     InMemoryCartRepository ..|> ICartRepository
     ProductsClient ..|> IProductsClient
-    FakeProductsClient ..|> IProductsClient
-    IHttpClientFactory ..> ProductsClient : crea con BaseUrl
+    IHttpClientFactory ..> ProductsClient : crea con BaseUrl y timeout
+    ProductsClient ..> CorrelationIdDelegatingHandler : HttpClient con
+    DownstreamServiceHealthCheck ..> IHttpClientFactory : mismo cliente
     ICartRepository ..> ShoppingCart : persiste
     ShoppingCart *-- CartItem
     IProductsClient ..> ProductInfo : devuelve

@@ -39,7 +39,7 @@ Aspectos transversales en **todos** los servicios: contrato de errores con `erro
 | Servicio | Responsable | Estado | Tests |
 |---|---|---|---|
 | Products.API | Thomas | ✅ Completo (Etapas 1–4) e integrado con Orders (Etapa 9): `OrdersClient` real para PRD-004, Correlation ID saliente y Orders en `/health/ready`. | 97 |
-| Cart.API | Thomas | ✅ Completo (Etapa 6). Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
+| Cart.API | Thomas | ✅ Completo (Etapa 6) e integrado con Products (Etapa 9): Correlation ID saliente, Products en `/health/ready` y timeout. | 101 |
 | Users.API | Juan Pablo | ✅ Completo (Etapa 5): registro, login, bloqueo y `GET /api/users/{id}`, con la plantilla replicada. Sin tareas en la Etapa 9. | 72 |
 | Notifications.API | Juan Pablo | ✅ Completo (Etapa 8), con `UsersClient` real y la plantilla replicada. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
 | Orders.API | Juan Pablo | ✅ Completo (Etapa 7): los 4 endpoints, máquina de estados, `UsersClient` y `ProductsClient` reales con timeout de 5 segundos, y la plantilla replicada. Falta propagar el Correlation ID y sumar Users y Products a `/health/ready` (Etapa 9). | 136 |
@@ -438,7 +438,7 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-25 | En Cart, todo dato inválido (cantidad ≤ 0, producto o cantidad faltante, JSON mal formado) responde 400 con CRT-004, y el `errorMessage` lista los problemas. | CRT-004 es el único código 400 del catálogo de Cart. |
 | D-26 | `PUT` y `DELETE` de un item que no está en el carrito responden 404 con CRT-002 y el mensaje "El producto no se encuentra en el carrito.". | El catálogo no tiene un código para ese caso; CRT-002 es el "producto no encontrado" de Cart. |
 | D-27 | `DELETE /api/cart/{userId}` (vaciar) elimina el carrito: después, `GET` responde CRT-001. Quitar el último item con `DELETE .../items/{productId}` deja el carrito vacío. | "Vaciar el carrito completo" deja al usuario sin carrito activo; el siguiente `POST /items` crea uno nuevo. |
-| D-28 | Si Products.API responde un error distinto de 404 o no responde, `ProductsClient` lanza una excepción y el handler global responde 500 con CRT-005. | Es una falla de infraestructura, no un dato del negocio. El catálogo de Cart no tiene un código para "servicio no disponible". |
+| D-28 | Si Products.API responde un error distinto de 404 o no responde (timeout de 5 segundos), `ProductsClient` lanza una excepción y el handler global responde 500 con CRT-005. | Es una falla de infraestructura, no un dato del negocio. El catálogo de Cart no tiene un código para "servicio no disponible". |
 | D-29 | Si Users.API responde un error distinto de 404 o no responde (timeout de 5 segundos), `UsersClient` de Notifications lanza una excepción y el handler global responde 500 con NTF-004. | Mismo criterio que D-28: es una falla de infraestructura, no un dato del negocio. |
 | D-30 | `GET /api/notifications/{userId}` no consulta a Users.API: un usuario sin notificaciones, exista o no, responde 404 con NTF-003; un id que no es GUID también (D-17). | El catálogo define NTF-001 solo para el POST, y una llamada HTTP extra no cambiaría el resultado. |
 | D-31 | Se puede enviar una notificación a un usuario bloqueado (`Activo = false`): Notifications solo verifica que exista. | El bloqueo impide iniciar sesión, no recibir avisos. |
@@ -742,14 +742,14 @@ Capa HTTP y transversales (Bloque 4, replicando la plantilla):
 Objetivo: que los servicios colaboren de punta a punta.
 
 Tests primero:
-- [x] `CorrelationIdDelegatingHandler`: las llamadas salientes incluyen el `X-Correlation-Id` del request original (Products).
-- [x] `DownstreamServiceHealthCheck`: `/health/ready` informa `Degraded` si un servicio del que depende no responde (Products).
+- [x] `CorrelationIdDelegatingHandler`: las llamadas salientes incluyen el `X-Correlation-Id` del request original (Products y Cart).
+- [x] `DownstreamServiceHealthCheck`: `/health/ready` informa `Degraded` si un servicio del que depende no responde (Products y Cart).
 
 Thomas (Products y Cart):
 - [x] `IOrdersClient` → `OrdersClient` (HTTP, con `OrderInfo`), probado contra el contrato de la sección 4.4. Se elimina `StubOrdersClient` (D-39).
-- [ ] `CorrelationIdDelegatingHandler` (hereda de `DelegatingHandler`) en los clientes HTTP de Products y Cart (Products ✅; falta Cart).
-- [ ] `DownstreamServiceHealthCheck` (implementa `IHealthCheck`) en `/health/ready` de Products (depende de Orders) y Cart (depende de Products) (Products ✅; falta Cart).
-- [ ] Timeouts configurados en los clientes HTTP (Products ✅ 5 segundos; falta Cart).
+- [x] `CorrelationIdDelegatingHandler` (hereda de `DelegatingHandler`) en los clientes HTTP de Products y Cart.
+- [x] `DownstreamServiceHealthCheck` (implementa `IHealthCheck`) en `/health/ready` de Products (depende de Orders) y Cart (depende de Products).
+- [x] Timeouts configurados en los clientes HTTP (5 segundos, como en Orders y Notifications).
 
 Juan Pablo (Orders y Notifications):
 - [ ] `CorrelationIdDelegatingHandler` en los clientes HTTP de Orders y Notifications.

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Cart.API.Clients;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Cart.API.Infrastructure;
@@ -6,7 +7,7 @@ namespace Cart.API.Infrastructure;
 /// <summary>
 /// Health checks (sección 5.4 del enunciado):
 /// /health/live → el proceso está vivo (no depende de nada externo);
-/// /health/ready → puede atender requests (persistencia y, desde la Etapa 9, Products.API);
+/// /health/ready → puede atender requests (persistencia y Products.API);
 /// /health → todos los checks.
 /// </summary>
 public static class HealthCheckExtensions
@@ -18,7 +19,15 @@ public static class HealthCheckExtensions
     {
         services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy("El servicio está en ejecución."), tags: [LiveTag])
-            .AddCheck<CartRepositoryHealthCheck>("persistencia", tags: [ReadyTag]);
+            .AddCheck<CartRepositoryHealthCheck>("persistencia", tags: [ReadyTag])
+            // Products caído degrada el servicio pero no lo saca de servicio: el carrito se puede
+            // consultar y vaciar; fallan las altas y los cambios de cantidad (D-24).
+            .Add(new HealthCheckRegistration(
+                "Products.API",
+                provider => new DownstreamServiceHealthCheck(
+                    provider.GetRequiredService<IHttpClientFactory>(), nameof(IProductsClient), "Products.API"),
+                HealthStatus.Degraded,
+                [ReadyTag]));
 
         return services;
     }

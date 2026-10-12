@@ -65,8 +65,10 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 | 07/10 | Juan Pablo | Alineación con el plan: métodos en inglés, enums de Notifications y acciones del controller como en la plantilla | `aba9c44`, `76b4cee` |
 | 07/10 | Juan Pablo | **Etapas 5 y 8:** plantilla transversal replicada. Users.API y Notifications.API completos | `348fb38` |
 | 10/10 | Juan Pablo | **Etapa 7:** Orders.API en cuatro tandas: dominio y máquina de estados, servicio, clientes HTTP y capa HTTP con la plantilla. Orders.API completo | `f34b388` … `52d05e1` |
+| 10/10 | Thomas | Corrección del `detail` de ORD-006 (revisión de Orders) y **Etapa 9 (parte 1):** `OrdersClient` real para PRD-004, Correlation ID saliente y Orders en `/health/ready` de Products | `0941f3a`, `c5d0790` |
+| 10/10 | Thomas | **Etapa 9 (parte 2):** lo mismo en Cart con Products. La Etapa 9 de Thomas queda completa | — |
 
-En poco más de tres semanas se pasó de una plantilla vacía a los cinco servicios completos (426 tests entre los cinco), tres de ellos consumiendo a otros. Falta la integración de punta a punta (Etapa 9).
+En poco más de tres semanas se pasó de una plantilla vacía a los cinco servicios completos (463 tests entre los cinco), tres de ellos consumiendo a otros. La Etapa 9 ya integró Products con Orders y Cart con Products; faltan Orders y Notifications.
 
 ---
 
@@ -239,7 +241,7 @@ Conviene tenerla clara para la defensa, porque es una pregunta típica.
 
 Las llamadas HTTP se hacen con `IHttpClientFactory`, siempre detrás de una interfaz (`IProductsClient`, `IUsersClient`, `IOrdersClient`), con la URL de cada servicio en `appsettings.json`. Cart → Products ya funciona así (sección 8).
 
-En la Etapa 9 cada llamada empieza a llevar el `X-Correlation-Id` del request original, con un `CorrelationIdDelegatingHandler`. Products → Orders ya lo hace: un `DELETE` de un producto aparece con el mismo ID en los logs de los dos servicios ([repaso de Products, sección 7.3](repaso-products-api.md#73-correlationiddelegatinghandler-el-id-cruza-servicios)). Faltan Cart, Orders y Notifications.
+En la Etapa 9 cada llamada empieza a llevar el `X-Correlation-Id` del request original, con un `CorrelationIdDelegatingHandler`. Products → Orders y Cart → Products ya lo hacen: un `DELETE` de un producto o un `POST` al carrito aparecen con el mismo ID en los logs de los dos servicios ([repaso de Products, sección 7.3](repaso-products-api.md#73-correlationiddelegatinghandler-el-id-cruza-servicios)). Faltan Orders y Notifications.
 
 ---
 
@@ -298,10 +300,10 @@ Cart.API es el segundo servicio terminado y el primero que **depende de otro**: 
 |---|---|---|
 | **Huecos del enunciado** | Cuatro decisiones nuevas antes de escribir tests: todo 400 usa CRT-004 (D-25), un producto que no está en el carrito responde CRT-002 (D-26), vaciar elimina el carrito (D-27) y Products caído responde CRT-005 (D-28) | [Repaso de Cart, sección 2](repaso-cart-api.md#2-antes-de-programar-los-huecos-del-enunciado) |
 | **Primer cliente HTTP** | `ProductsClient`, registrado con `IHttpClientFactory` y con la URL en `appsettings.json`. Revisa el status antes de leer el body: un 404 es un dato ("no existe") y un 500 es una falla | [Repaso de Cart, sección 4](repaso-cart-api.md#4-productsclient-hablar-con-otro-servicio) |
-| **Tests con una dependencia** | Tres niveles: el cliente con un handler HTTP falso, Cart completo con un `FakeProductsClient` y una prueba manual con los dos servicios | [Repaso de Cart, sección 6](repaso-cart-api.md#6-cómo-se-testea-un-servicio-que-depende-de-otro) |
+| **Tests con una dependencia** | Tres niveles: el cliente con un handler HTTP falso, Cart completo con un `FakeProductsApi` que reemplaza solo la red y una prueba manual con los dos servicios | [Repaso de Cart, sección 6](repaso-cart-api.md#6-cómo-se-testea-un-servicio-que-depende-de-otro) |
 | **La plantilla se replicó** | La parte transversal se copió de Products y solo cambiaron los códigos de error y dos detalles. Confirma que la plantilla no depende del dominio | [Repaso de Cart, sección 5.2](repaso-cart-api.md#52-replicar-la-plantilla) |
 | **Resiliencia** | Con Products caído, Cart responde CRT-005 al agregar productos, pero sigue mostrando los carritos | [Repaso de Cart, sección 7](repaso-cart-api.md#7-la-prueba-con-los-dos-servicios-levantados) |
-| **Lo que falta** | El Correlation ID no viaja de Cart a Products: un mismo request aparece con dos IDs distintos en los logs. Lo resuelve la Etapa 9 | [Repaso de Cart, sección 10](repaso-cart-api.md#10-lo-que-falta-etapa-9) |
+| **Etapa 9** | El Correlation ID viaja de Cart a Products, Products está en el `/health/ready` de Cart (`Degraded` si no responde) y el cliente tiene un timeout de 5 segundos | [Repaso de Cart, sección 10](repaso-cart-api.md#10-etapa-9-integración-con-products) |
 
 > **Para la defensa:** "Cart consulta a Products por HTTP detrás de una interfaz. Un 404 de Products es un dato del negocio (CRT-002) y un 500 es una falla de infraestructura (CRT-005). Si Products se cae, solo fallan las operaciones que lo necesitan."
 
@@ -405,7 +407,7 @@ Todo se corrigió el 07/10 (`f927227`, `54a8efa`). Después se revisaron los dos
 | **Products.API** | Thomas | ✅ **Completo** (Etapas 1–4). Es la plantilla. Integrado con Orders (Etapa 9): `OrdersClient` real, Correlation ID saliente y Orders en `/health/ready`. | 97 |
 | **Users.API** | Juan Pablo | ✅ **Completo** (Etapa 5). Es el servicio del que dependen Orders y Notifications. Sin tareas en la Etapa 9. | 72 |
 | **Notifications.API** | Juan Pablo | ✅ **Completo** (Etapa 8). Consume a Users. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
-| **Cart.API** | Thomas | ✅ **Completo** (Etapa 6). Primer servicio que consume a otro. Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
+| **Cart.API** | Thomas | ✅ **Completo** (Etapa 6). Primer servicio que consume a otro. Integrado con Products (Etapa 9): Correlation ID saliente, Products en `/health/ready` y timeout. | 101 |
 | **Orders.API** | Juan Pablo | ✅ **Completo** (Etapa 7). Consume a Users y Products. Falta propagar el Correlation ID y sumar Users y Products a `/health/ready` (Etapa 9). | 136 |
 
 **Pendientes externos:**
@@ -512,7 +514,7 @@ Las 38 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 1. ~~PR de `develop` a `main` para cerrar el **hito H2**~~ (PR #2, mergeado el 08/10).
 2. ~~Products: `OrdersClient` real para PRD-004, Correlation ID saliente, Orders en `/health/ready` y timeout~~ (Etapa 9, parte 1). El formato de `GET /api/orders?productoId=` coincidió con el contrato; el `OrdersClient` solo lee `id` y `estado`.
-3. Cart: `CorrelationIdDelegatingHandler`, Products en `/health/ready` y timeout de `ProductsClient` (Etapa 9, parte 2).
+3. ~~Cart: `CorrelationIdDelegatingHandler`, Products en `/health/ready` y timeout de `ProductsClient`~~ (Etapa 9, parte 2). La Etapa 9 de Thomas quedó completa.
 
 **Después:** las capturas de Swagger y la parte del README que falta (Etapa 10), y el ensayo de la defensa (Etapa 11).
 
