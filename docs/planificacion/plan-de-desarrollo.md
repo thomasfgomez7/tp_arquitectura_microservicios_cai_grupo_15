@@ -480,7 +480,7 @@ Este código se documenta en Swagger y en la tabla de códigos de error del READ
 - [ ] Recibir la librería de persistencia de la cátedra y reemplazar los repositorios en memoria.
 - [ ] Consultar con los docentes si están de acuerdo con los endpoints adicionales (D-06, D-07) y el código USR-007.
 - [ ] Consultar con los docentes el 409 de `POST /api/orders`, que ningún código del catálogo produce (D-38).
-- [ ] Acordar con Thomas si Orders tiene una orden semilla Pendiente con la Notebook, para mostrar PRD-004 en la demo.
+- [x] Acordar si Orders tiene una orden semilla Pendiente con la Notebook, para mostrar PRD-004 en la demo: **sí** (12/10). La implementación es una tarea de Juan Pablo en la Etapa 10.
 
 ---
 
@@ -772,9 +772,11 @@ Thomas:
 Juan Pablo:
 - [ ] Tabla completa de códigos de error en el README, incluyendo USR-007.
 - [ ] Decisiones de diseño (sección 5 de este documento) en el README.
+- [ ] Orden semilla en Orders.API: Pendiente, de María, con la Notebook (`3fa85f64-…`), para que `DELETE /api/products/3fa85f64-…` responda PRD-004 apenas se levantan los servicios. Actualizar la tabla "Datos de prueba" del README, que hoy dice que Orders arranca vacío.
 
-Ambos:
-- [ ] Archivos `.http` de sus servicios con casos de éxito y de error, revisados para la demo.
+Archivos `.http` con casos de éxito y de error, revisados para la demo:
+- [x] Products y Cart (Thomas): PRD-004 de punta a punta con Orders, Correlation ID hacia otro servicio y `/health/ready` con la dependencia caída.
+- [ ] Users, Orders y Notifications (Juan Pablo).
 
 ### Etapa 11 — Prueba integral y defensa
 

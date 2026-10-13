@@ -505,7 +505,7 @@ Las 38 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 **Juan Pablo (Bloque 6, Etapa 9 en Orders y Notifications):**
 
-1. **Confirmar con Thomas el formato de `GET /api/orders?productoId=` (D-07, D-37)** que va a leer su `OrdersClient`, y si Orders tiene una orden semilla con la Notebook para mostrar PRD-004.
+1. ~~Confirmar con Thomas el formato de `GET /api/orders?productoId=` (D-07, D-37)~~: coincidió con lo que lee `OrdersClient`. **Orden semilla:** se decidió que Orders arranca con una orden Pendiente con la Notebook, para mostrar PRD-004 en la demo (tarea de la Etapa 10).
 2. `CorrelationIdDelegatingHandler` en los clientes de Orders y Notifications.
 3. `DownstreamServiceHealthCheck`: Users y Products en el `/health/ready` de Orders, y Users en el de Notifications.
 4. Prueba con los servicios levantados juntos. Los timeouts ya están (5 segundos).
