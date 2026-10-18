@@ -18,7 +18,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddOrderServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+        services.AddSingleton<IOrderRepository>(_ => new InMemoryOrderRepository(OrderSeedData.Create()));
         services.AddScoped<IOrderService, OrderService>();
 
         // Typed clients: IHttpClientFactory crea y recicla los HttpClient (evita agotar conexiones) y

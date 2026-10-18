@@ -51,7 +51,23 @@ Content-Type: application/json
   "email": "no-es-un-email"
 }
 
-### Contraseña incorrecta → 401 (USR-003). Al tercer intento la cuenta se bloquea (D-09)
+### Login con datos faltantes → 400 (USR-002)
+POST {{HostAddress}}/api/users/login
+Content-Type: application/json
+
+{}
+
+### Email que no está registrado → 401 (USR-003)
+POST {{HostAddress}}/api/users/login
+Content-Type: application/json
+
+{
+  "email": "nadie@email.com",
+  "password": "{{Password}}"
+}
+
+### Bloqueo en vivo (D-09), con Ana registrada arriba: ejecutar este request tres veces.
+### Las tres responden 401 (USR-003) y la tercera bloquea la cuenta.
 POST {{HostAddress}}/api/users/login
 Content-Type: application/json
 
@@ -60,7 +76,16 @@ Content-Type: application/json
   "password": "PasswordIncorrecta1!"
 }
 
-### Bloqueado por intentos fallidos → 403 (USR-004)
+### Después del bloqueo, incluso con la contraseña correcta → 403 (USR-004)
+POST {{HostAddress}}/api/users/login
+Content-Type: application/json
+
+{
+  "email": "ana@email.com",
+  "password": "{{Password}}"
+}
+
+### Usuario semilla bloqueado por intentos fallidos → 403 (USR-004)
 POST {{HostAddress}}/api/users/login
 Content-Type: application/json
 
@@ -91,6 +116,9 @@ Accept: application/json
 ### Correlation ID propio: se devuelve en el header y aparece en los logs
 GET {{HostAddress}}/api/users/{{MariaId}}
 X-Correlation-Id: demo-users-123
+
+### Users no llama a otros servicios, pero recibe el Correlation ID de Orders y Notifications:
+### después de un POST con "X-Correlation-Id: demo-orders" en Orders.API.http, el mismo ID aparece en estos logs.
 
 ### Health checks
 GET {{HostAddress}}/health

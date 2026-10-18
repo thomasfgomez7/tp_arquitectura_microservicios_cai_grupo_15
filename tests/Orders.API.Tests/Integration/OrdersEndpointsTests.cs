@@ -9,11 +9,41 @@ namespace Orders.API.Tests.Integration;
 
 /// <summary>
 /// Contrato de la sección 4.3 del enunciado. Todos los tests comparten la misma API en memoria:
-/// cada uno crea sus propias órdenes y no asume que la lista arranca vacía.
+/// cada uno crea sus propias órdenes (salvo la de los datos semilla, que nadie modifica) y no asume
+/// que la lista arranca vacía.
 /// </summary>
 public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<OrdersApiFactory>
 {
+    // Orden de los datos semilla (OrderSeedData), igual al ejemplo del enunciado.
+    private const string OrdenSemilla = "f1e2d3c4-0000-0000-0000-aabbccddeeff";
+
     private readonly HttpClient _client = factory.CreateClient();
+
+    // ---------- Datos semilla ----------
+
+    [Fact]
+    public async Task GetById_OrdenDeLosDatosSemilla_Devuelve200ConElEjemploDelEnunciado()
+    {
+        var response = await _client.GetAsync($"/api/orders/{OrdenSemilla}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var orden = await response.Content.ReadFromJsonAsync<OrderResponse>();
+        Assert.Equal(FakeUsersApi.Maria, orden!.UsuarioId);
+        Assert.Equal("Pendiente", orden.Estado);
+        Assert.Equal(3000.00m, orden.Total);
+        var item = Assert.Single(orden.Items);
+        Assert.Equal((FakeProductsApi.Notebook, 2, 1500.00m), (item.ProductoId, item.Cantidad, item.PrecioUnitario));
+    }
+
+    [Fact]
+    public async Task GetAll_FiltroPorLaNotebook_IncluyeLaOrdenSemillaActiva()
+    {
+        // Es la que Products.API encuentra al intentar borrar la notebook (PRD-004).
+        var response = await _client.GetAsync($"/api/orders?productoId={FakeProductsApi.Notebook}");
+
+        var ordenes = await response.Content.ReadFromJsonAsync<List<OrderResponse>>();
+        Assert.Contains(ordenes!, o => o.Id == Guid.Parse(OrdenSemilla) && o.Estado == "Pendiente");
+    }
 
     // ---------- GET /api/orders ----------
 
