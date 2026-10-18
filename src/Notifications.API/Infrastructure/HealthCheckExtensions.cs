@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Notifications.API.Clients;
 
 namespace Notifications.API.Infrastructure;
 
 /// <summary>
 /// Health checks (sección 5.4 del enunciado):
 /// /health/live → el proceso está vivo (no depende de nada externo);
-/// /health/ready → puede atender requests (persistencia y, desde la Etapa 9, Users.API);
+/// /health/ready → puede atender requests (persistencia y Users.API);
 /// /health → todos los checks.
 /// </summary>
 public static class HealthCheckExtensions
@@ -18,7 +19,15 @@ public static class HealthCheckExtensions
     {
         services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy("El servicio está en ejecución."), tags: [LiveTag])
-            .AddCheck<NotificationRepositoryHealthCheck>("persistencia", tags: [ReadyTag]);
+            .AddCheck<NotificationRepositoryHealthCheck>("persistencia", tags: [ReadyTag])
+            // Users caído degrada el servicio pero no lo saca de servicio: se pueden listar las
+            // notificaciones; fallan los envíos (D-24, D-29).
+            .Add(new HealthCheckRegistration(
+                "Users.API",
+                provider => new DownstreamServiceHealthCheck(
+                    provider.GetRequiredService<IHttpClientFactory>(), nameof(IUsersClient), "Users.API"),
+                HealthStatus.Degraded,
+                [ReadyTag]));
 
         return services;
     }

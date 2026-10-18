@@ -9,8 +9,7 @@ using Notifications.API.Repositories;
 namespace Notifications.API.Tests.Integration;
 
 /// <summary>
-/// Requisitos de la sección 5.4 del enunciado. La dependencia con Users.API en /health/ready
-/// se agrega en la Etapa 9.
+/// Requisitos de la sección 5.4 del enunciado, con Users.API en /health/ready (Etapa 9).
 /// </summary>
 public class HealthCheckTests(NotificationsApiFactory factory) : IClassFixture<NotificationsApiFactory>
 {
@@ -27,6 +26,38 @@ public class HealthCheckTests(NotificationsApiFactory factory) : IClassFixture<N
         Assert.Equal("Healthy", body.RootElement.GetProperty("status").GetString());
         Assert.Equal("Notifications.API", body.RootElement.GetProperty("servicio").GetString());
         Assert.NotEmpty(body.RootElement.GetProperty("checks").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Ready_IncluyeElChequeoDeUsers()
+    {
+        var response = await factory.CreateClient().GetAsync("/health/ready");
+
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var check = Assert.Single(body.RootElement.GetProperty("checks").EnumerateArray(),
+            c => c.GetProperty("name").GetString() == "Users.API");
+        Assert.Equal("Healthy", check.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Ready_UsersCaido_Devuelve200DegradedYLiveSigueHealthy()
+    {
+        // D-24: sin Users fallan los envíos, pero se pueden listar las notificaciones.
+        using var conUsersCaido = new NotificationsApiFactory();
+        conUsersCaido.UsersApi.Caido = true;
+        var client = conUsersCaido.CreateClient();
+
+        var ready = await client.GetAsync("/health/ready");
+        var live = await client.GetAsync("/health/live");
+
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+        using var body = JsonDocument.Parse(await ready.Content.ReadAsStringAsync());
+        Assert.Equal("Degraded", body.RootElement.GetProperty("status").GetString());
+        var check = Assert.Single(body.RootElement.GetProperty("checks").EnumerateArray(),
+            c => c.GetProperty("name").GetString() == "Users.API");
+        Assert.Equal("Degraded", check.GetProperty("status").GetString());
+        using var liveBody = JsonDocument.Parse(await live.Content.ReadAsStringAsync());
+        Assert.Equal("Healthy", liveBody.RootElement.GetProperty("status").GetString());
     }
 
     [Fact]

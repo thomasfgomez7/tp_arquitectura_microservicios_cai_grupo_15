@@ -58,16 +58,37 @@ Accept: application/json
 GET {{HostAddress}}/api/notifications/99
 Accept: application/json
 
+### Con Users.API detenido, enviar una notificación → 500 (NTF-004, D-29)
+POST {{HostAddress}}/api/notifications/send
+Content-Type: application/json
+
+{
+  "usuarioId": "{{MariaId}}",
+  "mensaje": "Hola",
+  "tipo": "Email"
+}
+
 ### ---------- Observabilidad ----------
 
 ### Correlation ID propio: se devuelve en el header y aparece en los logs
 GET {{HostAddress}}/api/notifications/{{MariaId}}
 X-Correlation-Id: demo-notifications-123
 
+### Etapa 9: el X-Correlation-Id viaja a Users (buscar "demo-notifications" en los logs de los dos servicios)
+POST {{HostAddress}}/api/notifications/send
+Content-Type: application/json
+X-Correlation-Id: demo-notifications
+
+{
+  "usuarioId": "{{MariaId}}",
+  "mensaje": "Su orden #f1e2d3c4 fue confirmada.",
+  "tipo": "Email"
+}
+
 ### Health checks
 GET {{HostAddress}}/health
 
-###
+### /health/ready: incluye Users.API; con Users detenido responde 200 "Degraded"
 GET {{HostAddress}}/health/ready
 
 ###

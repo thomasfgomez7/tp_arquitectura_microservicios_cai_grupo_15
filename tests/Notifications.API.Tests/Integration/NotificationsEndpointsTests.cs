@@ -23,13 +23,13 @@ public class NotificationsEndpointsTests(NotificationsApiFactory factory) : ICla
     public async Task Send_DatosValidos_Devuelve201ConLaNotificacionEnviada()
     {
         var response = await _client.PostAsJsonAsync(SendUrl,
-            new { usuarioId = FakeUsersClient.Maria, mensaje = "Su orden #f1e2d3c4 fue confirmada.", tipo = "Email" });
+            new { usuarioId = FakeUsersApi.Maria, mensaje = "Su orden #f1e2d3c4 fue confirmada.", tipo = "Email" });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var notificacion = await response.Content.ReadFromJsonAsync<NotificationResponse>();
         Assert.NotNull(notificacion);
         Assert.NotEqual(Guid.Empty, notificacion.Id);
-        Assert.Equal(FakeUsersClient.Maria, notificacion.UsuarioId);
+        Assert.Equal(FakeUsersApi.Maria, notificacion.UsuarioId);
         Assert.Equal("Su orden #f1e2d3c4 fue confirmada.", notificacion.Mensaje);
         Assert.Equal("Email", notificacion.Tipo);
         Assert.Equal("Enviada", notificacion.Estado);
@@ -58,7 +58,7 @@ public class NotificationsEndpointsTests(NotificationsApiFactory factory) : ICla
     public async Task Send_TipoNoReconocido_Devuelve400ConNtf002()
     {
         var response = await _client.PostAsJsonAsync(SendUrl,
-            new { usuarioId = FakeUsersClient.Maria, mensaje = "Hola", tipo = "Fax" });
+            new { usuarioId = FakeUsersApi.Maria, mensaje = "Hola", tipo = "Fax" });
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.BadRequest, ErrorCodes.NTF_002,
             instance: SendUrl, errorMessage: "El tipo debe ser Email, Push o SMS.");
@@ -68,7 +68,7 @@ public class NotificationsEndpointsTests(NotificationsApiFactory factory) : ICla
     public async Task Send_MensajeDeMasDe500Caracteres_Devuelve400ConNtf002()
     {
         var response = await _client.PostAsJsonAsync(SendUrl,
-            new { usuarioId = FakeUsersClient.Maria, mensaje = new string('a', 501), tipo = "SMS" });
+            new { usuarioId = FakeUsersApi.Maria, mensaje = new string('a', 501), tipo = "SMS" });
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.BadRequest, ErrorCodes.NTF_002,
             instance: SendUrl, errorMessage: "El mensaje no puede superar los 500 caracteres.");
@@ -107,7 +107,7 @@ public class NotificationsEndpointsTests(NotificationsApiFactory factory) : ICla
             builder.ConfigureTestServices(services => services.AddScoped(_ => notificationService)));
 
         var response = await factoryConFalla.CreateClient().PostAsJsonAsync(SendUrl,
-            new { usuarioId = FakeUsersClient.Maria, mensaje = "Hola", tipo = "Email" });
+            new { usuarioId = FakeUsersApi.Maria, mensaje = "Hola", tipo = "Email" });
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.InternalServerError, ErrorCodes.NTF_004,
             instance: SendUrl, errorMessage: "Error interno al procesar la notificación.");
@@ -120,10 +120,10 @@ public class NotificationsEndpointsTests(NotificationsApiFactory factory) : ICla
     {
         var mensaje = $"Mensaje {Guid.NewGuid()}";
         var envio = await _client.PostAsJsonAsync(SendUrl,
-            new { usuarioId = FakeUsersClient.Maria, mensaje, tipo = "Push" });
+            new { usuarioId = FakeUsersApi.Maria, mensaje, tipo = "Push" });
         Assert.Equal(HttpStatusCode.Created, envio.StatusCode);
 
-        var response = await _client.GetAsync($"/api/notifications/{FakeUsersClient.Maria}");
+        var response = await _client.GetAsync($"/api/notifications/{FakeUsersApi.Maria}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var notificaciones = await response.Content.ReadFromJsonAsync<List<NotificationResponse>>();
