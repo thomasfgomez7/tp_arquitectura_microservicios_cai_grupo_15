@@ -9,8 +9,7 @@ using NSubstitute.ExceptionExtensions;
 namespace Orders.API.Tests.Integration;
 
 /// <summary>
-/// Requisitos de la sección 5.4 del enunciado. La dependencia con Users.API y Products.API en /health/ready
-/// se agrega en la Etapa 9.
+/// Requisitos de la sección 5.4 del enunciado, con Users.API y Products.API en /health/ready (Etapa 9).
 /// </summary>
 public class HealthCheckTests(OrdersApiFactory factory) : IClassFixture<OrdersApiFactory>
 {
@@ -27,6 +26,50 @@ public class HealthCheckTests(OrdersApiFactory factory) : IClassFixture<OrdersAp
         Assert.Equal("Healthy", body.RootElement.GetProperty("status").GetString());
         Assert.Equal("Orders.API", body.RootElement.GetProperty("servicio").GetString());
         Assert.NotEmpty(body.RootElement.GetProperty("checks").EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData("Users.API")]
+    [InlineData("Products.API")]
+    public async Task Ready_IncluyeElChequeoDeCadaServicioDelQueDepende(string servicio)
+    {
+        var response = await factory.CreateClient().GetAsync("/health/ready");
+
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var check = Assert.Single(body.RootElement.GetProperty("checks").EnumerateArray(),
+            c => c.GetProperty("name").GetString() == servicio);
+        Assert.Equal("Healthy", check.GetProperty("status").GetString());
+    }
+
+    [Theory]
+    [InlineData("Users.API")]
+    [InlineData("Products.API")]
+    public async Task Ready_UnServicioCaido_Devuelve200DegradedYLiveSigueHealthy(string servicio)
+    {
+        // D-24: sin Users o Products falla la creación de órdenes, pero se pueden consultar y cambiar de estado.
+        using var conServicioCaido = new OrdersApiFactory();
+        if (servicio == "Users.API")
+        {
+            conServicioCaido.UsersApi.Caido = true;
+        }
+        else
+        {
+            conServicioCaido.ProductsApi.Caido = true;
+        }
+        var client = conServicioCaido.CreateClient();
+
+        var ready = await client.GetAsync("/health/ready");
+        var live = await client.GetAsync("/health/live");
+
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+        using var body = JsonDocument.Parse(await ready.Content.ReadAsStringAsync());
+        Assert.Equal("Degraded", body.RootElement.GetProperty("status").GetString());
+        var checks = body.RootElement.GetProperty("checks").EnumerateArray()
+            .ToDictionary(c => c.GetProperty("name").GetString()!, c => c.GetProperty("status").GetString());
+        Assert.Equal("Degraded", checks[servicio]);
+        Assert.Equal("Healthy", checks[servicio == "Users.API" ? "Products.API" : "Users.API"]);
+        using var liveBody = JsonDocument.Parse(await live.Content.ReadAsStringAsync());
+        Assert.Equal("Healthy", liveBody.RootElement.GetProperty("status").GetString());
     }
 
     [Fact]

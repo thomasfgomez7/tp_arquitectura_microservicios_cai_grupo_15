@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using Orders.API.Clients;
 
 namespace Orders.API.Tests.Unit.Clients;
@@ -76,34 +75,4 @@ public class ProductsClientTests
 
     private static ProductsClient CrearCliente(FakeHttpHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("http://products.test/") });
-
-    /// <summary>
-    /// Reemplaza la red: devuelve una respuesta fija (o lanza una excepción) y guarda el request recibido.
-    /// </summary>
-    private sealed class FakeHttpHandler : HttpMessageHandler
-    {
-        private readonly HttpStatusCode _status;
-        private readonly string _body = "";
-        private readonly Exception? _error;
-
-        public FakeHttpHandler(HttpStatusCode status, string body) => (_status, _body) = (status, body);
-
-        public FakeHttpHandler(Exception error) => _error = error;
-
-        public HttpRequestMessage? UltimoRequest { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            UltimoRequest = request;
-            if (_error is not null)
-            {
-                throw _error;
-            }
-
-            return Task.FromResult(new HttpResponseMessage(_status)
-            {
-                Content = new StringContent(_body, Encoding.UTF8, "application/json")
-            });
-        }
-    }
 }

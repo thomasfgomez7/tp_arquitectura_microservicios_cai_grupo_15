@@ -23,21 +23,26 @@ public static class ServiceCollectionExtensions
 
         // Typed clients: IHttpClientFactory crea y recicla los HttpClient (evita agotar conexiones) y
         // le inyecta a cada cliente uno ya configurado con la URL de su servicio.
+        // El DelegatingHandler propaga el Correlation ID en las llamadas de los dos.
+        services.AddTransient<CorrelationIdDelegatingHandler>();
+
         var usersUrl = configuration["Services:UsersApi:BaseUrl"]
                        ?? throw new InvalidOperationException("Falta la configuración 'Services:UsersApi:BaseUrl'.");
         services.AddHttpClient<IUsersClient, UsersClient>(client =>
-        {
-            client.BaseAddress = new Uri(usersUrl);
-            client.Timeout = ClientTimeout;
-        });
+            {
+                client.BaseAddress = new Uri(usersUrl);
+                client.Timeout = ClientTimeout;
+            })
+            .AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
 
         var productsUrl = configuration["Services:ProductsApi:BaseUrl"]
                           ?? throw new InvalidOperationException("Falta la configuración 'Services:ProductsApi:BaseUrl'.");
         services.AddHttpClient<IProductsClient, ProductsClient>(client =>
-        {
-            client.BaseAddress = new Uri(productsUrl);
-            client.Timeout = ClientTimeout;
-        });
+            {
+                client.BaseAddress = new Uri(productsUrl);
+                client.Timeout = ClientTimeout;
+            })
+            .AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
 
         return services;
     }

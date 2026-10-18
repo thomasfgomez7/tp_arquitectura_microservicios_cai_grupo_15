@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Orders.API.Clients;
 
 namespace Orders.API.Infrastructure;
 
 /// <summary>
 /// Health checks (sección 5.4 del enunciado):
 /// /health/live → el proceso está vivo (no depende de nada externo);
-/// /health/ready → puede atender requests (persistencia y, desde la Etapa 9, Users.API y Products.API);
+/// /health/ready → puede atender requests (persistencia, Users.API y Products.API);
 /// /health → todos los checks.
 /// </summary>
 public static class HealthCheckExtensions
@@ -18,10 +19,21 @@ public static class HealthCheckExtensions
     {
         services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy("El servicio está en ejecución."), tags: [LiveTag])
-            .AddCheck<OrderRepositoryHealthCheck>("persistencia", tags: [ReadyTag]);
+            .AddCheck<OrderRepositoryHealthCheck>("persistencia", tags: [ReadyTag])
+            // Users o Products caídos degradan el servicio pero no lo sacan de servicio: se pueden
+            // consultar órdenes y cambiar su estado; falla la creación (D-24, D-36).
+            .Add(Downstream("Users.API", nameof(IUsersClient)))
+            .Add(Downstream("Products.API", nameof(IProductsClient)));
 
         return services;
     }
+
+    private static HealthCheckRegistration Downstream(string serviceName, string clientName) => new(
+        serviceName,
+        provider => new DownstreamServiceHealthCheck(
+            provider.GetRequiredService<IHttpClientFactory>(), clientName, serviceName),
+        HealthStatus.Degraded,
+        [ReadyTag]);
 
     public static WebApplication MapOrderHealthChecks(this WebApplication app)
     {

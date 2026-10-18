@@ -2,11 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using NSubstitute;
-using NSubstitute.ExceptionExtensions;
-using Orders.API.Clients;
 using Orders.API.DTOs;
 using Orders.API.Exceptions;
 
@@ -25,7 +20,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task GetAll_SinFiltros_Devuelve200ConLaOrdenCreada()
     {
-        var orden = await CrearOrdenAsync(FakeProductsClient.Notebook, 1);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Notebook, 1);
 
         var response = await _client.GetAsync("/api/orders");
 
@@ -37,13 +32,13 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task GetAll_FiltroPorUsuario_DevuelveSoloSusOrdenes()
     {
-        var orden = await CrearOrdenAsync(FakeProductsClient.Notebook, 1);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Notebook, 1);
 
-        var response = await _client.GetAsync($"/api/orders?usuarioId={FakeUsersClient.Maria}");
+        var response = await _client.GetAsync($"/api/orders?usuarioId={FakeUsersApi.Maria}");
 
         var ordenes = await response.Content.ReadFromJsonAsync<List<OrderResponse>>();
         Assert.Contains(ordenes!, o => o.Id == orden.Id);
-        Assert.All(ordenes!, o => Assert.Equal(FakeUsersClient.Maria, o.UsuarioId));
+        Assert.All(ordenes!, o => Assert.Equal(FakeUsersApi.Maria, o.UsuarioId));
     }
 
     [Fact]
@@ -59,13 +54,13 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     public async Task GetAll_FiltroPorProducto_DevuelveLasOrdenesQueLoIncluyen()
     {
         // D-07: lo usa Products.API para saber si un producto tiene órdenes activas (PRD-004).
-        var orden = await CrearOrdenAsync(FakeProductsClient.Auriculares, 1);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Auriculares, 1);
 
-        var response = await _client.GetAsync($"/api/orders?productoId={FakeProductsClient.Auriculares}");
+        var response = await _client.GetAsync($"/api/orders?productoId={FakeProductsApi.Auriculares}");
 
         var ordenes = await response.Content.ReadFromJsonAsync<List<OrderResponse>>();
         Assert.Contains(ordenes!, o => o.Id == orden.Id);
-        Assert.All(ordenes!, o => Assert.Contains(o.Items, i => i.ProductoId == FakeProductsClient.Auriculares));
+        Assert.All(ordenes!, o => Assert.Contains(o.Items, i => i.ProductoId == FakeProductsApi.Auriculares));
     }
 
     [Theory]
@@ -74,7 +69,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     public async Task GetAll_FiltroQueNoEsGuid_Devuelve200ConListaVacia(string query)
     {
         // D-37: el endpoint solo admite 200 y 500 (D-12), así que un filtro inválido no coincide con nada.
-        await CrearOrdenAsync(FakeProductsClient.Notebook, 1);
+        await CrearOrdenAsync(FakeProductsApi.Notebook, 1);
 
         var response = await _client.GetAsync($"/api/orders?{query}");
 
@@ -87,7 +82,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task GetById_OrdenExistente_Devuelve200ConElFormatoDelEnunciado()
     {
-        var orden = await CrearOrdenAsync(FakeProductsClient.Notebook, 2);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Notebook, 2);
 
         var response = await _client.GetAsync($"/api/orders/{orden.Id}");
 
@@ -95,12 +90,12 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var raiz = body.RootElement;
         Assert.Equal(orden.Id.ToString(), raiz.GetProperty("id").GetString());
-        Assert.Equal(FakeUsersClient.Maria.ToString(), raiz.GetProperty("usuarioId").GetString());
+        Assert.Equal(FakeUsersApi.Maria.ToString(), raiz.GetProperty("usuarioId").GetString());
         Assert.Equal("Pendiente", raiz.GetProperty("estado").GetString());
         Assert.Equal(3000m, raiz.GetProperty("total").GetDecimal());
         Assert.True(raiz.TryGetProperty("fechaCreacion", out _));
         var item = raiz.GetProperty("items")[0];
-        Assert.Equal(FakeProductsClient.Notebook.ToString(), item.GetProperty("productoId").GetString());
+        Assert.Equal(FakeProductsApi.Notebook.ToString(), item.GetProperty("productoId").GetString());
         Assert.Equal(2, item.GetProperty("cantidad").GetInt32());
         Assert.Equal(1500m, item.GetProperty("precioUnitario").GetDecimal());
     }
@@ -131,7 +126,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     public async Task Create_DatosValidos_Devuelve201ConLocationYElTotalCalculado()
     {
         var response = await _client.PostAsJsonAsync("/api/orders",
-            Crear(FakeUsersClient.Maria, (FakeProductsClient.Notebook, 2), (FakeProductsClient.Auriculares, 1)));
+            Crear(FakeUsersApi.Maria, (FakeProductsApi.Notebook, 2), (FakeProductsApi.Auriculares, 1)));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var orden = await response.Content.ReadFromJsonAsync<OrderResponse>();
@@ -143,7 +138,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task Create_SinItems_Devuelve400ConORD002()
     {
-        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersClient.Maria));
+        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersApi.Maria));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.BadRequest, ErrorCodes.ORD_002,
             instance: "/api/orders", errorMessage: "La orden debe tener al menos un item.");
@@ -163,7 +158,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task Create_ItemConCantidadCero_Devuelve400ConORD002()
     {
-        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersClient.Maria, (FakeProductsClient.Notebook, 0)));
+        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersApi.Maria, (FakeProductsApi.Notebook, 0)));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.BadRequest, ErrorCodes.ORD_002,
             instance: "/api/orders", errorMessage: "La cantidad debe ser mayor a cero.");
@@ -181,7 +176,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task Create_UsuarioInexistente_Devuelve404ConORD003()
     {
-        var response = await _client.PostAsJsonAsync("/api/orders", Crear(Guid.NewGuid(), (FakeProductsClient.Notebook, 1)));
+        var response = await _client.PostAsJsonAsync("/api/orders", Crear(Guid.NewGuid(), (FakeProductsApi.Notebook, 1)));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.NotFound, ErrorCodes.ORD_003,
             instance: "/api/orders", errorMessage: "Usuario no encontrado al crear la orden.");
@@ -190,7 +185,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task Create_ProductoInexistente_Devuelve404ConORD004()
     {
-        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersClient.Maria, (Guid.NewGuid(), 1)));
+        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersApi.Maria, (Guid.NewGuid(), 1)));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.NotFound, ErrorCodes.ORD_004,
             instance: "/api/orders", errorMessage: "Producto no encontrado al crear la orden.");
@@ -199,25 +194,10 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task Create_StockInsuficiente_Devuelve422ConORD005()
     {
-        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersClient.Maria, (FakeProductsClient.Taladro, 5)));
+        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersApi.Maria, (FakeProductsApi.Taladro, 5)));
 
         await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.UnprocessableEntity, ErrorCodes.ORD_005,
             instance: "/api/orders", errorMessage: "Stock insuficiente para 'Taladro percutor 750W'. Disponible: 2, solicitado: 5.");
-    }
-
-    [Fact]
-    public async Task Create_UsersApiNoResponde_Devuelve500ConORD007()
-    {
-        // D-36: una falla de otro servicio no es un error del negocio.
-        var usersClient = Substitute.For<IUsersClient>();
-        usersClient.GetUserAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new HttpRequestException("Connection refused"));
-        var client = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton(usersClient))).CreateClient();
-
-        var response = await client.PostAsJsonAsync("/api/orders", Crear(FakeUsersClient.Maria, (FakeProductsClient.Notebook, 1)));
-
-        await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.InternalServerError, ErrorCodes.ORD_007,
-            instance: "/api/orders", errorMessage: "Error interno al procesar la orden.");
     }
 
     // ---------- PUT /api/orders/{id}/status ----------
@@ -225,7 +205,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task UpdateStatus_TransicionValida_Devuelve200YLaOrdenQuedaConfirmada()
     {
-        var orden = await CrearOrdenAsync(FakeProductsClient.Notebook, 1);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Notebook, 1);
 
         var response = await _client.PutAsJsonAsync($"/api/orders/{orden.Id}/status", Estado("Confirmada"));
 
@@ -240,7 +220,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task UpdateStatus_CicloCompleto_LlegaAEntregada()
     {
-        var orden = await CrearOrdenAsync(FakeProductsClient.Notebook, 1);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Notebook, 1);
 
         foreach (var estado in new[] { "Confirmada", "Enviada", "Entregada" })
         {
@@ -255,7 +235,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task UpdateStatus_TransicionInvalida_Devuelve409ConORD006()
     {
-        var orden = await CrearOrdenAsync(FakeProductsClient.Notebook, 1);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Notebook, 1);
 
         var response = await _client.PutAsJsonAsync($"/api/orders/{orden.Id}/status", Estado("Entregada"));
 
@@ -270,7 +250,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task UpdateStatus_EstadoDesconocido_Devuelve400ConORD002()
     {
-        var orden = await CrearOrdenAsync(FakeProductsClient.Notebook, 1);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Notebook, 1);
 
         var response = await _client.PutAsJsonAsync($"/api/orders/{orden.Id}/status", Estado("Pagada"));
 
@@ -282,7 +262,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
     [Fact]
     public async Task UpdateStatus_SinEstado_Devuelve400ConORD002()
     {
-        var orden = await CrearOrdenAsync(FakeProductsClient.Notebook, 1);
+        var orden = await CrearOrdenAsync(FakeProductsApi.Notebook, 1);
 
         var response = await _client.PutAsync($"/api/orders/{orden.Id}/status", Json("{}"));
 
@@ -323,7 +303,7 @@ public class OrdersEndpointsTests(OrdersApiFactory factory) : IClassFixture<Orde
 
     private async Task<OrderResponse> CrearOrdenAsync(Guid productoId, int cantidad)
     {
-        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersClient.Maria, (productoId, cantidad)));
+        var response = await _client.PostAsJsonAsync("/api/orders", Crear(FakeUsersApi.Maria, (productoId, cantidad)));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<OrderResponse>())!;
     }

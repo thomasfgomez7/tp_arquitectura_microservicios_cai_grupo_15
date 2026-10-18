@@ -128,3 +128,26 @@ Content-Type: application/json
     { "productoId": "{{Notebook}}", "cantidad": 1 }
   ]
 }
+
+### ---------- Observabilidad ----------
+
+### Etapa 9: el X-Correlation-Id viaja a Users y a Products (buscar "demo-orders" en los logs de los tres servicios)
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+X-Correlation-Id: demo-orders
+
+{
+  "usuarioId": "{{Maria}}",
+  "items": [
+    { "productoId": "{{Notebook}}", "cantidad": 1 }
+  ]
+}
+
+### Health checks
+GET {{HostAddress}}/health
+
+### /health/ready: incluye Users.API y Products.API; con alguno detenido responde 200 "Degraded"
+GET {{HostAddress}}/health/ready
+
+###
+GET {{HostAddress}}/health/live
