@@ -1,6 +1,6 @@
 # Repaso general del proyecto
 
-Explicación de todo lo hecho en el repositorio hasta el cierre de Orders.API (10/10/2026): de dónde partimos, cómo planificamos, cómo nos organizamos, qué arquitectura elegimos y por qué, qué aprendimos de las revisiones de código y en qué estado está cada servicio.
+Explicación de todo lo hecho en el repositorio hasta el cierre de las Etapas 9 y 10 (18/10/2026): de dónde partimos, cómo planificamos, cómo nos organizamos, qué arquitectura elegimos y por qué, qué aprendimos de las revisiones de código y en qué estado está cada servicio.
 
 Este documento da la **vista de conjunto**. El detalle técnico de cómo se construyó la plantilla (controllers, manejo de errores, logs, Swagger y health checks) está en [repaso-products-api.md](repaso-products-api.md); lo propio de cada API, en su repaso: [Products](repaso-products-api.md), [Cart](repaso-cart-api.md), [Users](repaso-users-api.md), [Notifications](repaso-notifications-api.md) y [Orders](repaso-orders-api.md).
 
@@ -67,8 +67,11 @@ Este documento da la **vista de conjunto**. El detalle técnico de cómo se cons
 | 10/10 | Juan Pablo | **Etapa 7:** Orders.API en cuatro tandas: dominio y máquina de estados, servicio, clientes HTTP y capa HTTP con la plantilla. Orders.API completo | `f34b388` … `52d05e1` |
 | 10/10 | Thomas | Corrección del `detail` de ORD-006 (revisión de Orders) y **Etapa 9 (parte 1):** `OrdersClient` real para PRD-004, Correlation ID saliente y Orders en `/health/ready` de Products | `0941f3a`, `c5d0790` |
 | 12/10 | Thomas | **Etapa 9 (parte 2):** lo mismo en Cart con Products. La Etapa 9 de Thomas queda completa | `ebbab94` |
+| 12/10 | Thomas | **Etapa 10:** scripts para levantar los cinco servicios, README completo, capturas de Swagger y la decisión de la orden semilla | `56dc63e`, `4d42edd`, `1964e5f` |
+| 18/10 | Juan Pablo | **Etapa 9 (parte 3):** Correlation ID saliente y dependencias en `/health/ready` en Notifications (Users) y Orders (Users y Products). La Etapa 9 queda completa | `ce30050`, `49cd843` |
+| 18/10 | Juan Pablo | **Etapa 10:** orden semilla en Orders, `.http` de Users, Orders y Notifications revisados para la demo, y tablas de códigos de error y decisiones en el README | — |
 
-En poco más de tres semanas se pasó de una plantilla vacía a los cinco servicios completos (463 tests entre los cinco), tres de ellos consumiendo a otros. La Etapa 9 ya integró Products con Orders y Cart con Products; faltan Orders y Notifications.
+En cuatro semanas se pasó de una plantilla vacía a los cinco servicios completos e integrados entre sí (493 tests entre los cinco), con la documentación y los entregables listos. Queda la Etapa 11: la prueba integral y el ensayo de la defensa.
 
 ---
 
@@ -241,7 +244,7 @@ Conviene tenerla clara para la defensa, porque es una pregunta típica.
 
 Las llamadas HTTP se hacen con `IHttpClientFactory`, siempre detrás de una interfaz (`IProductsClient`, `IUsersClient`, `IOrdersClient`), con la URL de cada servicio en `appsettings.json`. Cart → Products ya funciona así (sección 8).
 
-En la Etapa 9 cada llamada empieza a llevar el `X-Correlation-Id` del request original, con un `CorrelationIdDelegatingHandler`. Products → Orders y Cart → Products ya lo hacen: un `DELETE` de un producto o un `POST` al carrito aparecen con el mismo ID en los logs de los dos servicios ([repaso de Products, sección 7.3](repaso-products-api.md#73-correlationiddelegatinghandler-el-id-cruza-servicios)). Faltan Orders y Notifications.
+En la Etapa 9 cada llamada empieza a llevar el `X-Correlation-Id` del request original, con un `CorrelationIdDelegatingHandler`. Products → Orders y Cart → Products ya lo hacen: un `DELETE` de un producto o un `POST` al carrito aparecen con el mismo ID en los logs de los dos servicios ([repaso de Products, sección 7.3](repaso-products-api.md#73-correlationiddelegatinghandler-el-id-cruza-servicios)). Desde el 18/10 también lo hacen Orders → Users y Products, y Notifications → Users: un `POST /api/orders` deja el mismo ID en los logs de los tres servicios ([repaso de Orders, sección 10](repaso-orders-api.md#10-etapas-9-y-10-integración-con-users-y-products-y-orden-semilla)).
 
 ---
 
@@ -324,7 +327,9 @@ Los tres servicios de Juan Pablo. El detalle está en sus repasos: **[repaso-use
 | **La plantilla se replicó otra vez** | Copiada de Cart cambiando solo el namespace, los códigos de error y el health check | Repasos, sección 4.2 / 5.2 |
 | **Orders: la máquina de estados** | Una tabla en `OrderStatusTransitions` con las transiciones permitidas; cualquier otra es ORD-006. Testeada con las 25 combinaciones | [Repaso de Orders, sección 3.2](repaso-orders-api.md#32-la-máquina-de-estados-orderstatustransitions) |
 | **Orders consume a dos servicios** | Users (ORD-003) y Products (precio, ORD-004 y ORD-005), con clientes copiados de Notifications y Cart y timeout de 5 segundos. Todos los chequeos se hacen antes de guardar | [Repaso de Orders, sección 3.3](repaso-orders-api.md#33-las-reglas-de-orderservice) |
-| **El contrato con Products** | `GET /api/orders?productoId=` (D-07), que Thomas va a usar para PRD-004 en la Etapa 9 | [Repaso de Orders, sección 10](repaso-orders-api.md#10-lo-que-falta-etapa-9) |
+| **El contrato con Products** | `GET /api/orders?productoId=` (D-07), que el `OrdersClient` de Products usa para PRD-004 desde la Etapa 9 | [Repaso de Orders, sección 10](repaso-orders-api.md#10-etapas-9-y-10-integración-con-users-y-products-y-orden-semilla) |
+| **Etapa 9** | El Correlation ID viaja de Notifications a Users y de Orders a Users y Products; las dependencias están en cada `/health/ready` (`Degraded` si no responden). Los tests reemplazan solo la red, como en Cart | [Repaso de Notifications, sección 10](repaso-notifications-api.md#10-etapa-9-integración-con-users) y [de Orders, sección 10](repaso-orders-api.md#10-etapas-9-y-10-integración-con-users-y-products-y-orden-semilla) |
+| **Etapa 10** | Orden semilla Pendiente con la Notebook (PRD-004 apenas se levantan los servicios) y `.http` revisados para la demo | [Repaso de Orders, sección 10.2](repaso-orders-api.md#102-etapa-10-orden-semilla) |
 | **Huecos de Orders** | D-33 (`FechaActualizacion`), D-34 (items repetidos), D-35 (usuarios bloqueados), D-36 (servicio caído → ORD-007), D-37 (filtro inválido → `[]`) y D-38 (el 409 del POST) | [Repaso de Orders, sección 2](repaso-orders-api.md#2-antes-de-programar-los-huecos-del-enunciado) |
 
 > **Para la defensa:** "Users es el servicio del que dependen otros, por eso su contrato está fijado en un test. Notifications le pregunta a Users si el destinatario existe; un 404 es NTF-001 y una falla de Users es NTF-004. Orders le pregunta a Users y a Products antes de guardar nada, toma el precio de Products y controla los cambios de estado con una tabla de transiciones."
@@ -406,9 +411,9 @@ Todo se corrigió el 07/10 (`f927227`, `54a8efa`). Después se revisaron los dos
 |---|---|---|---|
 | **Products.API** | Thomas | ✅ **Completo** (Etapas 1–4). Es la plantilla. Integrado con Orders (Etapa 9): `OrdersClient` real, Correlation ID saliente y Orders en `/health/ready`. | 97 |
 | **Users.API** | Juan Pablo | ✅ **Completo** (Etapa 5). Es el servicio del que dependen Orders y Notifications. Sin tareas en la Etapa 9. | 72 |
-| **Notifications.API** | Juan Pablo | ✅ **Completo** (Etapa 8). Consume a Users. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
+| **Notifications.API** | Juan Pablo | ✅ **Completo** (Etapa 8). Consume a Users. Integrado con Users (Etapa 9): Correlation ID saliente y Users en `/health/ready`. | 70 |
 | **Cart.API** | Thomas | ✅ **Completo** (Etapa 6). Primer servicio que consume a otro. Integrado con Products (Etapa 9): Correlation ID saliente, Products en `/health/ready` y timeout. | 101 |
-| **Orders.API** | Juan Pablo | ✅ **Completo** (Etapa 7). Consume a Users y Products. Falta propagar el Correlation ID y sumar Users y Products a `/health/ready` (Etapa 9). | 136 |
+| **Orders.API** | Juan Pablo | ✅ **Completo** (Etapa 7). Consume a Users y Products. Integrado con los dos (Etapa 9): Correlation ID saliente y los dos en `/health/ready`. Arranca con la orden semilla para PRD-004 (Etapa 10). | 153 |
 
 **Pendientes externos:**
 
@@ -419,7 +424,7 @@ Todo se corrigió el 07/10 (`f927227`, `54a8efa`). Después se revisaron los dos
 
 ## 13. Las decisiones, agrupadas por tema
 
-Las 38 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
+Las 39 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
 
 **Estructura y entorno**
 
@@ -448,6 +453,7 @@ Las 38 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 | D-09 | Tercer intento: 401 y bloqueo | La respuesta refleja el motivo de ese intento |
 | D-13 | Cart suma cantidades | Comportamiento esperable de un carrito |
 | D-14 | Crear una orden no descuenta stock | El enunciado no lo exige |
+| D-39 | Orders caído → `DELETE` de producto da PRD-005 y no borra | Sin saber si hay órdenes activas no se aplica PRD-004 ("fallar cerrado") |
 
 **Contrato de errores**
 
@@ -503,20 +509,17 @@ Las 38 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 ## 14. Próximos pasos
 
-**Juan Pablo (Bloque 6, Etapa 9 en Orders y Notifications):**
+Las Etapas 1 a 10 están completas. Los dos opcionales de la Etapa 9 (que Orders notifique los cambios de estado y descontar stock, D-14) se descartaron el 18/10: el enunciado no los pide y sumaban dependencias nuevas justo antes de la defensa.
 
-1. ~~Confirmar con Thomas el formato de `GET /api/orders?productoId=` (D-07, D-37)~~: coincidió con lo que lee `OrdersClient`. **Orden semilla:** se decidió que Orders arranca con una orden Pendiente con la Notebook, para mostrar PRD-004 en la demo (tarea de la Etapa 10).
-2. `CorrelationIdDelegatingHandler` en los clientes de Orders y Notifications.
-3. `DownstreamServiceHealthCheck`: Users y Products en el `/health/ready` de Orders, y Users en el de Notifications.
-4. Prueba con los servicios levantados juntos. Los timeouts ya están (5 segundos).
+**Etapa 11 (juntos, Bloque 7):**
 
-**Thomas (Bloque 5, Etapa 9 en Products y Cart):**
+1. Recorrer de punta a punta el catálogo de errores de los cinco servicios, con los servicios levantados (`scripts/start-all`) y los `.http` de cada uno.
+2. Verificar logs (consola y archivo) y health checks, incluido `Degraded` con una dependencia detenida.
+3. Armar el guion de la demo (15 a 20 minutos) desde Swagger.
+4. Revisión cruzada: cada uno explica en voz alta un servicio del otro.
+5. PR final de `develop` a `main` (Thomas).
 
-1. ~~PR de `develop` a `main` para cerrar el **hito H2**~~ (PR #2, mergeado el 08/10).
-2. ~~Products: `OrdersClient` real para PRD-004, Correlation ID saliente, Orders en `/health/ready` y timeout~~ (Etapa 9, parte 1). El formato de `GET /api/orders?productoId=` coincidió con el contrato; el `OrdersClient` solo lee `id` y `estado`.
-3. ~~Cart: `CorrelationIdDelegatingHandler`, Products en `/health/ready` y timeout de `ProductsClient`~~ (Etapa 9, parte 2). La Etapa 9 de Thomas quedó completa.
-
-**Después:** las capturas de Swagger y la parte del README que falta (Etapa 10), y el ensayo de la defensa (Etapa 11).
+**Pendientes externos:** la librería de persistencia de la cátedra (D-03) y la consulta a los docentes sobre D-06, D-07, USR-007 y D-38.
 
 ---
 
@@ -546,4 +549,4 @@ Por servicios: cada uno es dueño de los suyos y los contratos entre servicios s
 Que cada tipo de test detecta un tipo de error distinto. Los tests unitarios no detectaron dependencias sin registrar ni un repositorio con el ciclo de vida equivocado. Por eso cada API tiene un test que levanta la app real y verifica el contenedor.
 
 **¿Cómo resolvieron lo que el enunciado no define?**
-Con decisiones explícitas y documentadas: 38 en el registro del plan, cada una con su motivo. Las que agregan endpoints (D-06, D-07) o se apartan de la tabla del enunciado (D-38) quedaron marcadas para consultarlas con los docentes.
+Con decisiones explícitas y documentadas: 39 en el registro del plan, cada una con su motivo. Las que agregan endpoints (D-06, D-07) o se apartan de la tabla del enunciado (D-38) quedaron marcadas para consultarlas con los docentes.

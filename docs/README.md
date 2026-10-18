@@ -6,7 +6,7 @@
 |---|---|---|
 | [`consignas/`](consignas/) | [TP_Microservicios_ECommerce_v7.md](consignas/TP_Microservicios_ECommerce_v7.md) | El enunciado de la cátedra en Markdown, para leerlo desde GitHub |
 | | [TP_Microservicios_ECommerce_v7.docx](consignas/TP_Microservicios_ECommerce_v7.docx) | El documento original; ante cualquier diferencia, vale este |
-| [`planificacion/`](planificacion/) | [plan-de-desarrollo.md](planificacion/plan-de-desarrollo.md) | La guía de trabajo: estado actual, estructura, convenciones de código, reparto de tareas, decisiones de diseño (D-01 a D-38) y etapas |
+| [`planificacion/`](planificacion/) | [plan-de-desarrollo.md](planificacion/plan-de-desarrollo.md) | La guía de trabajo: estado actual, estructura, convenciones de código, reparto de tareas, decisiones de diseño (D-01 a D-39) y etapas |
 | [`arquitectura/`](arquitectura/) | [arquitectura.md](arquitectura/arquitectura.md) | Diagramas del sistema, de capas, de clases y de secuencia |
 | [`repasos/`](repasos/) | [repaso-general.md](repasos/repaso-general.md) | Vista de conjunto: línea de tiempo, planificación, trabajo en equipo, arquitectura, revisiones de código y próximos pasos |
 | | [repaso-products-api.md](repasos/repaso-products-api.md) | Cómo se construyó Products.API, que es la plantilla de todas las APIs |

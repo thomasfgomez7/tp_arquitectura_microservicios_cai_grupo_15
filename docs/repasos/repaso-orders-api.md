@@ -22,7 +22,7 @@ Orders.API reutiliza la plantilla de Products.API (manejo de errores, logs, Corr
 7. [Recorrido completo de un request](#7-recorrido-completo-de-un-request)
 8. [Mapa de archivos](#8-mapa-de-archivos)
 9. [La historia: cómo se construyó](#9-la-historia-cómo-se-construyó)
-10. [Lo que falta: Etapa 9](#10-lo-que-falta-etapa-9)
+10. [Etapas 9 y 10: integración con Users y Products, y orden semilla](#10-etapas-9-y-10-integración-con-users-y-products-y-orden-semilla)
 11. [Preguntas probables de la defensa](#11-preguntas-probables-de-la-defensa)
 
 ---
@@ -54,26 +54,29 @@ Todos pueden responder 500. Su catálogo de errores:
 
 ### 1.2 Lo que lo hace distinto: depende de dos servicios, y uno depende de él
 
-Orders es el servicio más conectado del sistema. Para crear una orden **le pregunta a Users** si el usuario existe y **a Products** el precio y el stock de cada producto. Y Products, a su vez, le va a preguntar a Orders si un producto tiene órdenes activas antes de borrarlo (PRD-004, Etapa 9):
+Orders es el servicio más conectado del sistema. Para crear una orden **le pregunta a Users** si el usuario existe y **a Products** el precio y el stock de cada producto. Y Products, a su vez, le pregunta a Orders si un producto tiene órdenes activas antes de borrarlo (PRD-004, desde la Etapa 9):
 
 ```mermaid
 flowchart LR
     cliente(["Cliente"]) --> orders["Orders.API :5003"]
     orders -- "GET /api/users/{id}<br/>¿existe el usuario?" --> users["Users.API :5002"]
     orders -- "GET /api/products/{id}<br/>precio y stock" --> products["Products.API :5001"]
-    products -. "GET /api/orders?productoId=<br/>PRD-004 (Etapa 9)" .-> orders
+    products -. "GET /api/orders?productoId=<br/>PRD-004" .-> orders
 ```
 
 ### 1.3 Cómo se construyó
 
-En cuatro tandas, cada una con su commit y sus tests, todas el 10/10:
+En cuatro tandas el 10/10, cada una con su commit y sus tests, y después las Etapas 9 y 10:
 
-| Commit | Qué | Tests |
-|---|---|---|
-| `f34b388` | Dominio, DTOs, códigos de error y máquina de estados | 26 |
-| `a73ef13` | Repositorio en memoria y servicio de órdenes | 59 |
-| `8b16ffc` | Clientes HTTP de Users y Products | 73 |
-| `52d05e1` | Controller, plantilla transversal y tests de integración | **136** |
+| Fecha | Commit | Qué | Tests |
+|---|---|---|---|
+| 10/10 | `f34b388` | Dominio, DTOs, códigos de error y máquina de estados | 26 |
+| 10/10 | `a73ef13` | Repositorio en memoria y servicio de órdenes | 59 |
+| 10/10 | `8b16ffc` | Clientes HTTP de Users y Products | 73 |
+| 10/10 | `52d05e1` | Controller, plantilla transversal y tests de integración | 136 |
+| 10/10 | `0941f3a` | (Thomas, en la revisión) `detail` propio de ORD-006, como en el enunciado | 136 |
+| 18/10 | `49cd843` | **Etapa 9:** Correlation ID hacia Users y Products, los dos en `/health/ready` y casos de demo en el `.http` | 151 |
+| 18/10 | — | **Etapa 10:** orden semilla para mostrar PRD-004 | **153** |
 
 ---
 
@@ -189,7 +192,7 @@ Como en Notifications, las validaciones de datos también las hacen las Data Ann
 
 Los filtros se aplican **en el repositorio**, no en el servicio: cuando llegue la librería de la cátedra, filtrar en la base es mucho más barato que traer todas las órdenes y filtrarlas en memoria.
 
-El constructor acepta órdenes iniciales, como el de Cart. Por ahora no hay datos semilla: está pendiente de acordar con Thomas si conviene una orden Pendiente con la Notebook para mostrar PRD-004 en la demo (sección 10).
+El constructor acepta órdenes iniciales, como el de Cart. Desde la Etapa 10, `OrderSeedData` carga **la orden del ejemplo del enunciado** (`f1e2d3c4-…`): de María, dos notebooks a $1500, total $3000, **Pendiente**. Como es una orden activa, `DELETE /api/products/{notebook}` responde PRD-004 apenas se levantan los servicios, sin tener que crear una orden antes (sección 10).
 
 ---
 
@@ -209,6 +212,7 @@ Se copiaron con `sed`, cambiando solo el namespace y los comentarios. Tienen el 
 - **`UserInfo` y `ProductInfo` son DTOs propios** de Orders, con solo los campos que usa (D-05).
 - **Typed clients con `IHttpClientFactory`,** con las URLs en `Services:UsersApi:BaseUrl` y `Services:ProductsApi:BaseUrl` de `appsettings.json`. Si falta alguna, la API no arranca y dice cuál falta.
 - **Timeout de 5 segundos en los dos** (`ServiceCollectionExtensions`). Sin él, si Users o Products se cuelgan, Orders esperaría los 100 segundos por defecto de .NET.
+- **Llevan el Correlation ID** (Etapa 9, sección 10): el mismo `CorrelationIdDelegatingHandler` está enganchado a los dos typed clients, sin tocar el código de los clientes.
 
 ---
 
@@ -231,12 +235,12 @@ Se copió de Cart cambiando el namespace, con estas adaptaciones:
 | Validaciones | ORD-002 |
 | `GlobalExceptionHandler` | ORD-007, "Error interno al procesar la orden." |
 | `ErrorExamplesOperationFilter` | El parámetro `{id}` se reemplaza por el id de la orden del enunciado (`f1e2d3c4-…`) |
-| Health check | `OrderRepositoryHealthCheck` verifica la persistencia de órdenes |
-| `ServiceCollectionExtensions` | Dos typed clients con URL y timeout |
+| Health check | `OrderRepositoryHealthCheck` verifica la persistencia de órdenes; desde la Etapa 9, `/health/ready` también verifica Users.API y Products.API |
+| `ServiceCollectionExtensions` | Dos typed clients con URL, timeout y el `DelegatingHandler` del Correlation ID; el repositorio con la orden semilla |
 
 ### 5.3 `Orders.API.http`
 
-Tiene los requests de éxito (crear, listar con y sin filtros, ver el detalle, confirmar) y uno por cada código de ORD-001 a ORD-007. Para crear órdenes hace falta Users.API levantado en el puerto 5002 y Products.API en el 5001. El id de la orden creada se pega en la variable `@OrdenId`.
+Tiene los requests de éxito (crear, ver la orden semilla, listar con y sin filtros, ver el detalle, confirmar) y uno por cada código de ORD-001 a ORD-007. Desde la Etapa 9 tiene una sección de observabilidad: una orden con `X-Correlation-Id: demo-orders`, para buscar el mismo ID en los logs de los tres servicios, y los health checks. Para crear órdenes hace falta Users.API levantado en el puerto 5002 y Products.API en el 5001. El id de la orden creada se pega en la variable `@OrdenId`.
 
 ---
 
@@ -246,19 +250,19 @@ Los mismos niveles que Cart y Notifications:
 
 | Nivel | Qué prueba | Cómo | Tests |
 |---|---|---|---|
-| **1. Los clientes HTTP** | Que `UsersClient` y `ProductsClient` armen la URL e interpreten 200, 404, 4xx, 5xx y la falta de respuesta | Un `HttpMessageHandler` falso reemplaza la red | 14 |
-| **Unitario** | La máquina de estados, las reglas del servicio y el repositorio | Users y Products como dobles de NSubstitute; `FakeTimeProvider` para las fechas | 58 |
-| **2. Orders completo** | Los 4 endpoints, ORD-001 a ORD-007 y la plantilla | `OrdersApiFactory` con `FakeUsersClient` y `FakeProductsClient` | 64 |
-| **3. Los tres servicios juntos** | La integración real | Prueba manual con Users, Products y Orders levantados (pendiente, sección 10) | — |
+| **1. Los clientes HTTP** | Que `UsersClient` y `ProductsClient` armen la URL e interpreten 200, 404, 4xx, 5xx y la falta de respuesta | Un `HttpMessageHandler` falso (`Unit/FakeHttpHandler`) reemplaza la red | 14 |
+| **Unitario** | La máquina de estados, las reglas del servicio, el repositorio, `CorrelationIdDelegatingHandler` y `DownstreamServiceHealthCheck` | Users y Products como dobles de NSubstitute; `FakeTimeProvider` para las fechas | 65 |
+| **2. Orders completo** | Los 4 endpoints, ORD-001 a ORD-007, la orden semilla, la plantilla, Users o Products caídos y el Correlation ID hacia los dos | `OrdersApiFactory` con `FakeUsersApi` y `FakeProductsApi`, que reemplazan solo la red | 74 |
+| **3. Los tres servicios juntos** | La integración real | Prueba manual con Users, Products y Orders levantados (sección 10) | — |
 
-**Total: 136.**
+**Total: 153.**
 
 - **La máquina de estados se prueba entera:** las 25 combinaciones posibles (5 estados × 5), 5 válidas y 20 inválidas, agrupadas en el test por motivo (mismo estado, saltearse pasos, volver atrás, estados finales).
-- **`FakeUsersClient`** conoce solo a María; **`FakeProductsClient`**, la Notebook (stock 10), los Auriculares (stock 25) y el Taladro (stock 2), con los mismos IDs que los datos semilla de Users y Products.
+- **`FakeUsersApi`** responde como Users.API y conoce solo a María; **`FakeProductsApi`** (copia del de Cart) responde como Products.API con la Notebook (stock 10), los Auriculares (stock 25) y el Taladro (stock 2). Tienen los mismos IDs que los datos semilla de Users y Products. Como solo reemplazan la red, los clientes reales, con su `DelegatingHandler`, también quedan probados. Hasta la Etapa 9 se reemplazaban los clientes enteros (`FakeUsersClient` y `FakeProductsClient`).
 - **Los tests del servicio verifican que no se guarde nada** cuando falla un producto o el stock, y que no se consulte a Products si el usuario no existe.
 - **Los tests de endpoints comparten la misma API en memoria,** así que cada uno crea sus propias órdenes y no asume que la lista arranca vacía.
 - **`DependencyInjectionTests`** usa la configuración **real**: verifica los dos typed clients con su URL y su timeout de 5 segundos.
-- **Un test de endpoints simula que Users no responde** y verifica el 500 con ORD-007 (D-36).
+- **`UsersAndProductsIntegrationTests`** apaga cada servicio falso y verifica el 500 con ORD-007 (D-36), que consultar y cambiar el estado sigan funcionando con los dos caídos, y que el Correlation ID llegue a los dos.
 
 ---
 
@@ -323,12 +327,15 @@ Si todo alcanzara, el servicio armaría la orden `Pendiente` con los precios de 
 | `Services/OrderStatusTransitions` | La máquina de estados |
 | `Services/IOrderService` → `OrderService` | Las reglas: ORD-001 a ORD-006 |
 | `Repositories/IOrderRepository` → `InMemoryOrderRepository` | Persistencia en memoria con los filtros |
+| `Repositories/OrderSeedData` | La orden del ejemplo del enunciado, Pendiente, para mostrar PRD-004 (Etapa 10) |
 | `Clients/IUsersClient` → `UsersClient`, `UserInfo` | Consulta a Users.API |
 | `Clients/IProductsClient` → `ProductsClient`, `ProductInfo` | Consulta a Products.API |
 | `Controllers/OrdersController` | Los 4 endpoints |
 | `Exceptions/ErrorCodes` | ORD-001 a ORD-007 |
 | `Infrastructure/ServiceCollectionExtensions` | Registra todo, incluidos los dos typed clients con URL y timeout |
 | `Infrastructure/OrderRepositoryHealthCheck` | El check `persistencia` de `/health/ready` |
+| `Infrastructure/CorrelationIdDelegatingHandler` | Agrega el `X-Correlation-Id` a las llamadas a Users y Products (Etapa 9) |
+| `Infrastructure/DownstreamServiceHealthCheck` | Los checks `Users.API` y `Products.API` de `/health/ready` (Etapa 9) |
 | `appsettings.json` | Incluye `Services:UsersApi:BaseUrl` y `Services:ProductsApi:BaseUrl` |
 
 El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#9-mapa-de-archivos).
@@ -341,15 +348,18 @@ El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-
 | `Unit/Services/OrderServiceTests` | Creación (precio, total, repetidos, bloqueado), ORD-001 a ORD-006, cambio de estado y listado | 24 |
 | `Unit/Repositories/InMemoryOrderRepositoryTests` | Guardar, buscar, actualizar y cada combinación de filtros | 9 |
 | `Unit/Clients/UsersClientTests`, `ProductsClientTests` | URL, interpretación de 200/404/4xx/5xx y falta de respuesta | 14 |
-| `Integration/OrdersEndpointsTests` | Los 4 endpoints, ORD-001 a ORD-007 por HTTP y el ciclo completo de estados | 25 |
+| `Unit/Infrastructure/CorrelationIdDelegatingHandlerTests` | Agrega el ID, no lo agrega sin request en curso y no lo duplica | 3 |
+| `Unit/Infrastructure/DownstreamServiceHealthCheckTests` | Consulta `/health/live` y devuelve Healthy o el estado de falla del registro | 4 |
+| `Integration/OrdersEndpointsTests` | Los 4 endpoints, ORD-001 a ORD-006 por HTTP, la orden semilla y el ciclo completo de estados | 26 |
+| `Integration/UsersAndProductsIntegrationTests` | Users o Products caídos (ORD-007), consultas con los dos caídos y el Correlation ID que viaja a los dos | 5 |
 | `Integration/SwaggerTests` | Status, resúmenes, tags y ejemplos por código | 19 |
 | `Integration/CorrelationIdTests` | Header recibido, generado, inválido y en errores | 5 |
 | `Integration/LoggingTests` | Inicio y fin, Warning y Error con `ErrorCode` | 4 |
-| `Integration/HealthCheckTests` | Los 3 endpoints y la persistencia caída | 4 |
+| `Integration/HealthCheckTests` | Los 3 endpoints, Users y Products en `ready` (cada uno caído: `Degraded`) y la persistencia caída | 8 |
 | `Integration/UnexpectedErrorTests` | ORD-007 y el detalle por entorno | 3 |
 | `Integration/DependencyInjectionTests` | Configuración real: servicio y los dos typed clients | 3 |
 | `Integration/SmokeTests` | Que la API arranque | 1 |
-| Auxiliares: `OrdersApiFactory` (con `FakeUsersClient` y `FakeProductsClient`), `ErrorContractAssert`, `CollectingSink` | — | — |
+| Auxiliares: `OrdersApiFactory` (con `FakeUsersApi` y `FakeProductsApi`), `Unit/FakeHttpHandler`, `ErrorContractAssert`, `CollectingSink` | — | — |
 
 ---
 
@@ -369,19 +379,40 @@ Cada tanda se compiló y testeó entera (los cinco proyectos) antes de su commit
 
 ---
 
-## 10. Lo que falta: Etapa 9
+## 10. Etapas 9 y 10: integración con Users y Products, y orden semilla
 
-| Pendiente | Por qué | Cómo |
-|---|---|---|
-| Confirmar D-07 con Thomas | Su `OrdersClient` real (PRD-004) va a leer `GET /api/orders?productoId=` | Formato propuesto: el mismo listado de siempre; `HasActiveOrdersAsync` da true si alguna orden está Pendiente o Confirmada |
-| Orden semilla (a definir con Thomas) | Mostrar PRD-004 en la demo | Una orden Pendiente con la Notebook, la del ejemplo del enunciado (`f1e2d3c4-…`) |
-| Propagar el Correlation ID | Hoy una orden aparece con IDs distintos en los logs de Orders, Users y Products | `CorrelationIdDelegatingHandler` en los dos typed clients |
-| Users y Products en `/health/ready` | Orders no está "listo" si no responden | `DownstreamServiceHealthCheck` que consulta `/health/live` de cada uno |
-| Prueba con los tres servicios levantados | Verificar ORD-003/004/005 con los servicios reales y ORD-007 con uno detenido | Como la [sección 7 del repaso de Cart](repaso-cart-api.md#7-la-prueba-con-los-dos-servicios-levantados) |
-| (Opcional) Notificar los cambios de estado | Mejora sugerida en el plan | Orders llama a `POST /api/notifications/send` |
-| (Opcional) Descontar stock (D-14) | Mejora sugerida en el plan | Requiere un endpoint nuevo en Products |
+### 10.1 Etapa 9: integración
 
-El timeout de los clientes (otra tarea de la Etapa 9) ya está hecho: 5 segundos.
+Igual que en Notifications, se copiaron las dos clases que Thomas creó para Products y Cart ([repaso de Cart, sección 10](repaso-cart-api.md#10-etapa-9-integración-con-products)), porque no se comparte código entre servicios (D-05). La diferencia es que Orders tiene **dos** dependencias:
+
+| Pendiente | Cómo quedó |
+|---|---|
+| Confirmar D-07 con Thomas | Su `OrdersClient` lee `GET /api/orders?productoId=` tal como lo implementamos: solo usa `id` y `estado` |
+| Propagar el Correlation ID | El mismo `CorrelationIdDelegatingHandler` enganchado a `UsersClient` y a `ProductsClient` |
+| Users y Products en `/health/ready` | Un `DownstreamServiceHealthCheck` por servicio; si cualquiera no responde, `Degraded` |
+| Timeouts | Ya estaban desde la Etapa 7: 5 segundos en los dos clientes |
+| Casos de demo en el `.http` | Orden con `X-Correlation-Id: demo-orders` y los tres health checks |
+
+**¿Por qué `Degraded` y no `Unhealthy`?** Con Users o Products caídos solo falla la creación de órdenes; consultarlas y cambiar su estado no llama a nadie. `Degraded` responde 200 (D-24), así que Orders sigue recibiendo tráfico.
+
+**Resultado con Users, Products y Orders levantados (18/10):**
+
+- Un `POST /api/orders` con `X-Correlation-Id: prueba-orders-etapa9` respondió 201, y el mismo ID apareció en los logs de Users **y** de Products.
+- `/health/ready` de Orders: `persistencia`, `Users.API` y `Products.API` en Healthy. Con Products apagado, `Degraded`.
+- **PRD-004 de punta a punta:** con una orden Pendiente de la Notebook, `DELETE /api/products/{notebook}` en Products respondió 409 con PRD-004, consultando a Orders de verdad.
+
+**El cambio en los tests (sección 6):** como en Cart y Notifications, el factory pasó a reemplazar solo la red (`FakeUsersApi` y `FakeProductsApi`). El test de "Users no responde" pasó de los tests de endpoints a `UsersAndProductsIntegrationTests`, que ahora prueba los dos servicios.
+
+### 10.2 Etapa 10: orden semilla
+
+Se acordó con Thomas (12/10) que Orders arranque con la orden del ejemplo del enunciado, **Pendiente**, de María y con dos notebooks (`OrderSeedData`, sección 3.5). Así PRD-004 se puede mostrar en la demo **apenas se levantan los servicios**: verificado el 18/10, `DELETE /api/products/3fa85f64-…` respondió 409 con PRD-004 sin crear ninguna orden antes. Dos tests de endpoints verifican que la orden semilla existe y que aparece en el filtro `?productoId=` de la Notebook.
+
+### 10.3 Opcionales descartados
+
+| Opcional | Por qué no se hizo |
+|---|---|
+| Notificar a Notifications cuando cambia el estado | Sumaría una dependencia nueva (Orders → Notifications) y habría que decidir qué pasa si Notifications falla. El enunciado no lo pide |
+| Descontar stock al crear la orden (D-14) | Requiere un endpoint nuevo en Products y manejar fallas a mitad de camino (por ejemplo, descontar el primer producto y que falle el segundo). El enunciado no lo exige |
 
 ---
 
@@ -397,7 +428,7 @@ Porque lo decide Products, no el cliente. Si viniera en el request, cualquiera p
 ORD-005 (422), y la orden no se guarda: todos los chequeos se hacen antes de guardar, así que no puede quedar una orden a medias.
 
 **¿Qué pasa si Users o Products están caídos?**
-El cliente lanza una excepción (o corta a los 5 segundos), el handler global responde 500 con ORD-007 y el error queda en el log (D-36). Consultar y cambiar el estado de órdenes sigue funcionando, porque no consulta a nadie.
+El cliente lanza una excepción (o corta a los 5 segundos), el handler global responde 500 con ORD-007 y el error queda en el log (D-36). Consultar y cambiar el estado de órdenes sigue funcionando, porque no consulta a nadie. Su `/health/ready` informa `Degraded`.
 
 **¿Por qué existe el filtro `?productoId=` si el enunciado no lo pide?**
 Porque Products necesita saber si un producto tiene órdenes activas antes de borrarlo (PRD-004), y no puede leer los datos de Orders: se lo tiene que preguntar por HTTP (D-07).
@@ -415,4 +446,4 @@ Sí (D-35). Orders solo verifica que el usuario exista. El bloqueo impide inicia
 Porque el enunciado no lo exige (D-14), y hacerlo bien requiere un endpoint nuevo en Products y manejar qué pasa si falla a mitad de camino. Quedó como mejora opcional.
 
 **¿Cómo testean Orders sin levantar Users ni Products?**
-Igual que Cart y Notifications: los clientes con un handler HTTP falso, el servicio con dobles de NSubstitute, y Orders completo con `FakeUsersClient` y `FakeProductsClient`, que tienen los mismos datos semilla que los servicios reales.
+Igual que Cart y Notifications: los clientes con un handler HTTP falso, el servicio con dobles de NSubstitute, y Orders completo con `FakeUsersApi` y `FakeProductsApi`, que reemplazan solo la red y tienen los mismos datos semilla que los servicios reales.

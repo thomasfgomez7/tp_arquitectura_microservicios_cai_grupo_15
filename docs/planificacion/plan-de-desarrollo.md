@@ -34,15 +34,15 @@ Aspectos transversales en **todos** los servicios: contrato de errores con `erro
 | Cart.API | http://localhost:5004 |
 | Notifications.API | http://localhost:5005 |
 
-### Estado actual (10/10/2026)
+### Estado actual (18/10/2026)
 
 | Servicio | Responsable | Estado | Tests |
 |---|---|---|---|
 | Products.API | Thomas | ✅ Completo (Etapas 1–4) e integrado con Orders (Etapa 9): `OrdersClient` real para PRD-004, Correlation ID saliente y Orders en `/health/ready`. | 97 |
 | Cart.API | Thomas | ✅ Completo (Etapa 6) e integrado con Products (Etapa 9): Correlation ID saliente, Products en `/health/ready` y timeout. | 101 |
-| Users.API | Juan Pablo | ✅ Completo (Etapa 5): registro, login, bloqueo y `GET /api/users/{id}`, con la plantilla replicada. Sin tareas en la Etapa 9. | 72 |
-| Notifications.API | Juan Pablo | ✅ Completo (Etapa 8), con `UsersClient` real y la plantilla replicada. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
-| Orders.API | Juan Pablo | ✅ Completo (Etapa 7): los 4 endpoints, máquina de estados, `UsersClient` y `ProductsClient` reales con timeout de 5 segundos, y la plantilla replicada. Falta propagar el Correlation ID y sumar Users y Products a `/health/ready` (Etapa 9). | 136 |
+| Users.API | Juan Pablo | ✅ Completo (Etapa 5): registro, login, bloqueo y `GET /api/users/{id}`, con la plantilla replicada. Sin tareas en la Etapa 9; `.http` revisado para la demo (Etapa 10). | 72 |
+| Notifications.API | Juan Pablo | ✅ Completo (Etapa 8) e integrado con Users (Etapa 9): Correlation ID saliente, Users en `/health/ready` y timeout. | 70 |
+| Orders.API | Juan Pablo | ✅ Completo (Etapa 7): los 4 endpoints, máquina de estados, `UsersClient` y `ProductsClient` reales con timeout de 5 segundos, y la plantilla replicada. Integrado con Users y Products (Etapa 9): Correlation ID saliente y los dos en `/health/ready`; orden semilla para PRD-004 (Etapa 10). | 153 |
 
 ---
 
@@ -223,7 +223,7 @@ Clases concretas: `CartController`, `ShoppingCart` (no `Cart`: ese nombre choca 
 | `IUsersClient` | `UsersClient` | `Clients/` | Verificar que el usuario exista en Users.API | Typed client | 7 |
 | `IProductsClient` | `ProductsClient` | `Clients/` | Consultar existencia, precio y stock en Products.API | Typed client | 7 |
 
-Clases concretas: `OrdersController`, `Order`, `OrderItem`, `OrderStatus` (enum), `CreateOrderRequest`, `CreateOrderItemRequest`, `UpdateOrderStatusRequest`, `OrderResponse`, `OrderItemResponse`, `OrderStatusResponse`, `OrderStatusTransitions` (`Services/`, máquina de estados), `UserInfo`, `ProductInfo`, `OrderRepositoryHealthCheck` (`Infrastructure/`).
+Clases concretas: `OrdersController`, `Order`, `OrderItem`, `OrderStatus` (enum), `CreateOrderRequest`, `CreateOrderItemRequest`, `UpdateOrderStatusRequest`, `OrderResponse`, `OrderItemResponse`, `OrderStatusResponse`, `OrderStatusTransitions` (`Services/`, máquina de estados), `OrderSeedData` (`Repositories/`, la orden del ejemplo del enunciado para mostrar PRD-004), `UserInfo`, `ProductInfo`, `OrderRepositoryHealthCheck` (`Infrastructure/`).
 
 #### Notifications.API — Juan Pablo
 
@@ -743,8 +743,8 @@ Capa HTTP y transversales (Bloque 4, replicando la plantilla):
 Objetivo: que los servicios colaboren de punta a punta.
 
 Tests primero:
-- [x] `CorrelationIdDelegatingHandler`: las llamadas salientes incluyen el `X-Correlation-Id` del request original (Products y Cart).
-- [x] `DownstreamServiceHealthCheck`: `/health/ready` informa `Degraded` si un servicio del que depende no responde (Products y Cart).
+- [x] `CorrelationIdDelegatingHandler`: las llamadas salientes incluyen el `X-Correlation-Id` del request original (los cuatro servicios que llaman a otros).
+- [x] `DownstreamServiceHealthCheck`: `/health/ready` informa `Degraded` si un servicio del que depende no responde (Products, Cart, Orders y Notifications).
 
 Thomas (Products y Cart):
 - [x] `IOrdersClient` → `OrdersClient` (HTTP, con `OrderInfo`), probado contra el contrato de la sección 4.4. Se elimina `StubOrdersClient` (D-39).
@@ -753,11 +753,11 @@ Thomas (Products y Cart):
 - [x] Timeouts configurados en los clientes HTTP (5 segundos, como en Orders y Notifications).
 
 Juan Pablo (Orders y Notifications):
-- [ ] `CorrelationIdDelegatingHandler` en los clientes HTTP de Orders y Notifications.
-- [ ] `DownstreamServiceHealthCheck` en `/health/ready` de Orders (depende de Users y Products) y Notifications (depende de Users).
+- [x] `CorrelationIdDelegatingHandler` en los clientes HTTP de Orders y Notifications.
+- [x] `DownstreamServiceHealthCheck` en `/health/ready` de Orders (depende de Users y Products) y Notifications (depende de Users).
 - [x] Timeouts configurados en los clientes HTTP (5 segundos en Notifications y en los dos clientes de Orders).
-- [ ] (Opcional) Orders.API notifica a Notifications.API cuando cambia el estado de una orden.
-- [ ] (Opcional) Descontar stock al crear una orden (D-14).
+- [ ] ~~(Opcional) Orders.API notifica a Notifications.API cuando cambia el estado de una orden.~~ **Descartado (18/10):** suma una dependencia nueva y el enunciado no lo pide.
+- [ ] ~~(Opcional) Descontar stock al crear una orden (D-14).~~ **Descartado (18/10):** requiere un endpoint nuevo en Products y manejar fallas a mitad de camino; el enunciado no lo exige.
 
 ### Etapa 10 — Documentación y entregables
 
@@ -770,13 +770,13 @@ Thomas:
 - [x] Capturas de Swagger UI con ejemplos de error (`errorCode` y `errorMessage`) en `docs/capturas/`, generadas con `scripts/capture-swagger.py`.
 
 Juan Pablo:
-- [ ] Tabla completa de códigos de error en el README, incluyendo USR-007.
-- [ ] Decisiones de diseño (sección 5 de este documento) en el README.
-- [ ] Orden semilla en Orders.API: Pendiente, de María, con la Notebook (`3fa85f64-…`), para que `DELETE /api/products/3fa85f64-…` responda PRD-004 apenas se levantan los servicios. Actualizar la tabla "Datos de prueba" del README, que hoy dice que Orders arranca vacío.
+- [x] Tabla completa de códigos de error en el README, incluyendo USR-007.
+- [x] Decisiones de diseño (sección 5 de este documento) en el README.
+- [x] Orden semilla en Orders.API: Pendiente, de María, con la Notebook (`3fa85f64-…`), para que `DELETE /api/products/3fa85f64-…` responda PRD-004 apenas se levantan los servicios. La tabla "Datos de prueba" del README la incluye.
 
 Archivos `.http` con casos de éxito y de error, revisados para la demo:
 - [x] Products y Cart (Thomas): PRD-004 de punta a punta con Orders, Correlation ID hacia otro servicio y `/health/ready` con la dependencia caída.
-- [ ] Users, Orders y Notifications (Juan Pablo).
+- [x] Users, Orders y Notifications (Juan Pablo): login 400, bloqueo en vivo (D-09), PRD-004 con la orden semilla, Correlation ID hacia otro servicio, `/health/ready` con la dependencia caída y el 500 de cada servicio con su dependencia detenida.
 
 ### Etapa 11 — Prueba integral y defensa
 
