@@ -766,13 +766,14 @@ Juan Pablo (Orders y Notifications):
 Thomas:
 - [x] README: cómo ejecutar cada servicio, tabla de puertos, descripción de cada servicio y datos de prueba.
 - [x] Diagrama de arquitectura en el README (Mermaid, con una versión ASCII).
-- [x] Script para levantar los cinco servicios juntos: `scripts/start-all.sh` (macOS y Linux) y `scripts/start-all.ps1` (Windows).
+- [x] Script para levantar los cinco servicios juntos: `scripts/start-all.sh` (macOS y Linux, probado) y `scripts/start-all.ps1` (Windows).
 - [x] Capturas de Swagger UI con ejemplos de error (`errorCode` y `errorMessage`) en `docs/capturas/`, generadas con `scripts/capture-swagger.py`.
 
 Juan Pablo:
 - [x] Tabla completa de códigos de error en el README, incluyendo USR-007.
 - [x] Decisiones de diseño (sección 5 de este documento) en el README.
 - [x] Orden semilla en Orders.API: Pendiente, de María, con la Notebook (`3fa85f64-…`), para que `DELETE /api/products/3fa85f64-…` responda PRD-004 apenas se levantan los servicios. La tabla "Datos de prueba" del README la incluye.
+- [ ] Probar `scripts/start-all.ps1` en Windows: levantar los cinco servicios, verificar las URLs que muestra y que Enter los detenga. No se pudo probar en macOS: usa `Get-NetTCPConnection` y `taskkill`, que solo existen en Windows.
 
 Archivos `.http` con casos de éxito y de error, revisados para la demo:
 - [x] Products y Cart (Thomas): PRD-004 de punta a punta con Orders, Correlation ID hacia otro servicio y `/health/ready` con la dependencia caída.
