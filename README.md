@@ -133,6 +133,14 @@ dotnet test ECommerce.slnx
 
 Los tests no necesitan ningún servicio levantado: cada API se levanta en memoria y las llamadas a otros servicios se reemplazan por dobles de prueba. GitHub Actions corre lo mismo en cada push ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
+### Prueba integral
+
+Con los servicios **apagados**, este script levanta los cinco, provoca los 28 códigos del catálogo, apaga una dependencia a la vez para los errores 500 y verifica health checks, Correlation ID entre servicios y logs en archivo. Solo necesita Python 3:
+
+```bash
+python3 scripts/verify-system.py
+```
+
 ### Levantar los cinco servicios juntos
 
 macOS y Linux:
@@ -194,7 +202,7 @@ Notifications arranca vacío: las notificaciones se crean con los IDs de arriba.
 ```
 ├── .github/workflows/ci.yml   # integración continua: build + tests en cada push
 ├── ECommerce.slnx             # solución con los 10 proyectos
-├── scripts/                   # start-all.sh/.ps1 levantan los cinco servicios; capture-swagger.py, las capturas
+├── scripts/                   # start-all.sh/.ps1 (levantar todo), verify-system.py (prueba integral), capture-swagger.py
 ├── src/                       # las 5 APIs
 │   └── <Servicio>.API/
 │       ├── Controllers/       # traducen HTTP ↔ DTO
@@ -211,7 +219,8 @@ Notifications arranca vacío: las notificaciones se crean con los IDs de arriba.
     ├── planificacion/         # plan de desarrollo
     ├── arquitectura/          # diagramas
     ├── repasos/               # repaso general + uno por API
-    └── capturas/              # capturas de Swagger UI con respuestas de error
+    ├── capturas/              # capturas de Swagger UI con respuestas de error
+    └── defensa/               # guion de la demo y guía de revisión cruzada
 ```
 
 ## Documentación
@@ -227,6 +236,8 @@ Notifications arranca vacío: las notificaciones se crean con los IDs de arriba.
 | [Repaso de Users.API](docs/repasos/repaso-users-api.md) | Contraseñas, regla de bloqueo y el contrato del que dependen Orders y Notifications |
 | [Repaso de Notifications.API](docs/repasos/repaso-notifications-api.md) | Envío simulado y el cliente HTTP de Users |
 | [Repaso de Orders.API](docs/repasos/repaso-orders-api.md) | Máquina de estados de la orden y los clientes HTTP de Users y Products |
+| [Guion de la demo](docs/defensa/guion-demo.md) | La demo de la defensa bloque por bloque, con tiempos, responsables y requests |
+| [Revisión cruzada](docs/defensa/revision-cruzada.md) | Qué tiene que poder explicar cada integrante de los servicios del otro |
 
 El índice completo, con los repasos pendientes de cada API, está en [docs/README.md](docs/README.md).
 

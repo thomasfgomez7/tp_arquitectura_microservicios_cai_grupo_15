@@ -72,8 +72,9 @@ ECommerce.slnx
 │   ├── planificacion/            # este plan
 │   ├── arquitectura/             # diagramas del sistema, de clases y de secuencia
 │   ├── repasos/                  # repaso general + un repaso por API (repaso-<servicio>-api.md)
-│   └── capturas/                 # capturas de Swagger para el entregable (Etapa 10)
-├── scripts/                      # start-all.sh / start-all.ps1 y capture-swagger.py (Etapa 10)
+│   ├── capturas/                 # capturas de Swagger para el entregable (Etapa 10)
+│   └── defensa/                  # guion de la demo y revisión cruzada (Etapa 11)
+├── scripts/                      # start-all.sh / .ps1, capture-swagger.py (Etapa 10) y verify-system.py (Etapa 11)
 └── README.md
 ```
 
@@ -260,9 +261,9 @@ Clases concretas: `NotificationsController`, `Notification`, `NotificationType` 
 | Hito | Al terminar | Resultado | Estado |
 |---|---|---|---|
 | H1 | Bloque 1 | Solución, proyectos y tests compilando | ✅ PR #1 (27/09) |
-| H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | 🟡 Products y Users listos; falta el PR |
-| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Los cinco servicios completos; falta el PR |
-| H4 | Bloque 7 | Integración entre servicios, documentación y entrega | ⬜ |
+| H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | ✅ PR #2 (08/10) |
+| H3 | Bloque 5 | Los cinco servicios funcionando | ✅ PR #3 (21/10), con la integración de punta a punta (Etapa 9) y la documentación (Etapa 10) |
+| H4 | Bloque 7 | Integración entre servicios, documentación y entrega | 🟡 Prueba integral y guion listos; faltan el ensayo, la revisión cruzada y el PR final |
 
 Los bloques se describen en la sección 4.2.
 
@@ -783,8 +784,9 @@ Archivos `.http` con casos de éxito y de error, revisados para la demo:
 
 **Responsables:** Thomas y Juan Pablo (juntos) · **Bloque:** 7
 
-- [ ] Recorrer de punta a punta todo el catálogo de errores de los cinco servicios.
-- [ ] Verificar logs (consola y archivo) y health checks de cada servicio.
-- [ ] Guion de la demo (15 a 20 minutos): endpoints exitosos y de error desde Swagger, logs y health checks.
-- [ ] Revisión cruzada: cada integrante explica en voz alta un servicio del otro.
+- [x] Recorrer de punta a punta todo el catálogo de errores de los cinco servicios: `scripts/verify-system.py` provoca los 28 códigos contra los servicios reales (USR-006 solo por tests: Users no depende de otro servicio). 59 de 59 chequeos el 21/10.
+- [x] Verificar logs (consola y archivo) y health checks de cada servicio: incluido en el mismo script (Correlation ID entre servicios, campos de la sección 5.3 y `Degraded` con cada dependencia apagada).
+- [x] Guion de la demo (15 a 20 minutos): [`docs/defensa/guion-demo.md`](../defensa/guion-demo.md).
+- [ ] Ensayar la demo con el guion, cronometrada.
+- [ ] Revisión cruzada: cada integrante explica en voz alta los servicios del otro, con la guía de [`docs/defensa/revision-cruzada.md`](../defensa/revision-cruzada.md).
 - [ ] PR final `develop` → `main` (Thomas).

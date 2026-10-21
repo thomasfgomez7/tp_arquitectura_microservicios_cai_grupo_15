@@ -15,6 +15,8 @@
 | | [repaso-notifications-api.md](repasos/repaso-notifications-api.md) | Cómo se construyó Notifications.API: envío simulado y cliente de Users |
 | | [repaso-orders-api.md](repasos/repaso-orders-api.md) | Cómo se construyó Orders.API: máquina de estados y clientes de Users y Products |
 | [`capturas/`](capturas/) | [README.md](capturas/README.md) | Capturas de Swagger UI con una respuesta de error real por servicio (entregable de la sección 9.2) |
+| [`defensa/`](defensa/) | [guion-demo.md](defensa/guion-demo.md) | La demo de 15 a 20 minutos: bloques, tiempos, responsables y requests |
+| | [revision-cruzada.md](defensa/revision-cruzada.md) | Qué tiene que poder explicar cada integrante de los servicios del otro |
 
 ## Repasos por API
 
