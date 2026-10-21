@@ -22,7 +22,7 @@ Notifications.API reutiliza la plantilla de Products.API (manejo de errores, log
 7. [Recorrido completo de un request](#7-recorrido-completo-de-un-request)
 8. [Mapa de archivos](#8-mapa-de-archivos)
 9. [La historia: lo que corrigieron las revisiones](#9-la-historia-lo-que-corrigieron-las-revisiones)
-10. [Lo que falta: Etapa 9](#10-lo-que-falta-etapa-9)
+10. [Etapa 9: integración con Users](#10-etapa-9-integración-con-users)
 11. [Preguntas probables de la defensa](#11-preguntas-probables-de-la-defensa)
 
 ---
@@ -65,7 +65,8 @@ flowchart LR
 | 04/10 | `5d673a4` | Repositorio Singleton thread-safe, contrato de errores y envío simulado detrás de una interfaz | 3 |
 | 07/10 | `54a8efa` | Correcciones de la tercera revisión: `UsersClient` real, `Guid?` obligatorio, ruta D-17 y tests | 26 |
 | 07/10 | `76b4cee` | Enums de tipo y estado, nombres en inglés y tests de repositorio | 31 |
-| 07/10 | `348fb38` | Plantilla transversal: Serilog, Swagger y health checks | **57** |
+| 07/10 | `348fb38` | Plantilla transversal: Serilog, Swagger y health checks | 57 |
+| 18/10 | `ce30050` | **Etapa 9:** Correlation ID hacia Users, Users en `/health/ready` y casos de demo en el `.http` | **70** |
 
 ---
 
@@ -166,6 +167,7 @@ public async Task<UserInfo?> GetUserAsync(Guid userId, CancellationToken cancell
 - **`UserInfo`** es un DTO propio con `Id`, `Nombre`, `Apellido`, `Email` y `Activo`, los campos del contrato de la sección 4.4 del plan (D-05).
 - **Typed client con `IHttpClientFactory`,** con la URL en `Services:UsersApi:BaseUrl` del `appsettings.json`. Si falta, la API no arranca y dice qué falta.
 - **Timeout de 5 segundos.** Es una tarea de la Etapa 9 que quedó hecha antes. Sin ella, si Users se cuelga, Notifications espera el timeout por defecto de .NET: 100 segundos.
+- **Lleva el Correlation ID** (Etapa 9, sección 10): un `CorrelationIdDelegatingHandler` enganchado al typed client agrega el `X-Correlation-Id` a cada llamada, sin tocar el código de `UsersClient`.
 
 **Historia:** al principio Notifications usaba un `StubUsersClient` que daba por existente a cualquier GUID que no fuera vacío. NTF-001 nunca se disparaba de verdad, y `UsersClient.cs` había quedado commiteado como un archivo de 0 bytes. Fue el primer punto de la tercera revisión.
 
@@ -188,11 +190,11 @@ Se copió de Cart cambiando el namespace, con estas adaptaciones:
 | Validaciones | NTF-002 |
 | `GlobalExceptionHandler` | NTF-004, "Error interno al procesar la notificación." |
 | `ErrorExamplesOperationFilter` | El parámetro `{userId}` se reemplaza por el ID de María |
-| Health check | `NotificationRepositoryHealthCheck` verifica la persistencia de notificaciones |
+| Health check | `NotificationRepositoryHealthCheck` verifica la persistencia de notificaciones; desde la Etapa 9, `/health/ready` también verifica Users.API |
 
 ### 5.3 `Notifications.API.http`
 
-Tiene un request para cada caso de éxito y uno por cada código NTF, más los de Correlation ID y health checks. Para enviar notificaciones hace falta Users.API levantado en el puerto 5002.
+Tiene un request para cada caso de éxito y uno por cada código NTF (NTF-004 con Users detenido), más los de Correlation ID y health checks. Desde la Etapa 9 incluye un envío con `X-Correlation-Id: demo-notifications`, para buscar el mismo ID en los logs de Users, y `/health/ready` con Users detenido. Para enviar notificaciones hace falta Users.API levantado en el puerto 5002.
 
 ---
 
@@ -202,14 +204,14 @@ Los mismos tres niveles que Cart:
 
 | Nivel | Qué prueba | Cómo | Tests |
 |---|---|---|---|
-| **1. El cliente HTTP** | Que `UsersClient` arme la URL e interprete 200, 404, 4xx, 5xx y la falta de respuesta | Un `HttpMessageHandler` falso reemplaza la red | 7 |
-| **Unitario** | Reglas del servicio, sender simulado y repositorio | Users y el sender como dobles de NSubstitute; `FakeTimeProvider` para la fecha | 10 |
-| **2. Notifications completo** | Los 2 endpoints, NTF-001 a NTF-004 y la plantilla | `NotificationsApiFactory` con un `FakeUsersClient` en el que solo existe María | 40 |
-| **3. Los dos servicios juntos** | La integración real | Prueba manual con Users y Notifications levantados (pendiente, sección 10) | — |
+| **1. El cliente HTTP** | Que `UsersClient` arme la URL e interprete 200, 404, 4xx, 5xx y la falta de respuesta | Un `HttpMessageHandler` falso (`Unit/FakeHttpHandler`) reemplaza la red | 7 |
+| **Unitario** | Reglas del servicio, sender simulado, repositorio, `CorrelationIdDelegatingHandler` y `DownstreamServiceHealthCheck` | Users y el sender como dobles de NSubstitute; `FakeTimeProvider` para la fecha | 17 |
+| **2. Notifications completo** | Los 2 endpoints, NTF-001 a NTF-004, la plantilla, Users caído y el Correlation ID hacia Users | `NotificationsApiFactory` con un `FakeUsersApi` que reemplaza solo la red | 46 |
+| **3. Los dos servicios juntos** | La integración real | Prueba manual con Users y Notifications levantados (sección 10) | — |
 
-**Total: 57.**
+**Total: 70.**
 
-- **`FakeUsersClient`** conoce solo a María (`a1b2c3d4-…`), la misma usuaria semilla de Users. Cualquier otro id es "no existe" → NTF-001.
+- **`FakeUsersApi`** responde como Users.API (`/health/live` y `GET /api/users/{id}`) y conoce solo a María (`a1b2c3d4-…`), la misma usuaria semilla de Users. Cualquier otro id es "no existe" → NTF-001. Como solo reemplaza la red, el `UsersClient` real, con su `DelegatingHandler`, también queda probado. Hasta la Etapa 9 se reemplazaba todo el cliente con un `FakeUsersClient`.
 - **`DependencyInjectionTests`** usa la configuración **real**, sin el fake: verifica que `UsersClient` sea un typed client con la URL `http://localhost:5002/` y el timeout de 5 segundos.
 - **Los tests del servicio usan dobles** para Users y para el sender, y verifican que, si el usuario no existe, **no se envíe ni se guarde nada** (`DidNotReceive()`).
 
@@ -274,9 +276,11 @@ Si el usuario existiera, el servicio crearía la notificación como `Pendiente`,
 | `Exceptions/ErrorCodes` | NTF-001 a NTF-004 |
 | `Infrastructure/ServiceCollectionExtensions` | Registra todo, incluido el typed client con la URL y el timeout |
 | `Infrastructure/NotificationRepositoryHealthCheck` | El check `persistencia` de `/health/ready` |
+| `Infrastructure/CorrelationIdDelegatingHandler` | Agrega el `X-Correlation-Id` a las llamadas a Users (Etapa 9) |
+| `Infrastructure/DownstreamServiceHealthCheck` | El check `Users.API` de `/health/ready` (Etapa 9) |
 | `appsettings.json` | Incluye `Services:UsersApi:BaseUrl` |
 
-El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#8-mapa-de-archivos).
+El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#9-mapa-de-archivos).
 
 ### `tests/Notifications.API.Tests/`
 
@@ -286,15 +290,18 @@ El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-
 | `Unit/Services/SimulatedNotificationSenderTests` | Siempre `Enviada`, con la fecha actual | 1 |
 | `Unit/Clients/UsersClientTests` | URL, interpretación de 200/404/4xx/5xx y falta de respuesta | 7 |
 | `Unit/Repositories/InMemoryNotificationRepositoryTests` | Filtra por usuario, ordena por fecha, lista vacía | 3 |
+| `Unit/Infrastructure/CorrelationIdDelegatingHandlerTests` | Agrega el ID, no lo agrega sin request en curso y no lo duplica | 3 |
+| `Unit/Infrastructure/DownstreamServiceHealthCheckTests` | Consulta `/health/live` y devuelve Healthy o el estado de falla del registro | 4 |
 | `Integration/NotificationsEndpointsTests` | Los 2 endpoints y NTF-001 a NTF-004 por HTTP | 11 |
+| `Integration/UsersIntegrationTests` | Users caído (NTF-004 al enviar, el listado sigue) y el Correlation ID que viaja a Users | 4 |
 | `Integration/SwaggerTests` | Status, resúmenes, tags y ejemplos por código | 10 |
 | `Integration/CorrelationIdTests` | Header recibido, generado, inválido y en errores | 5 |
 | `Integration/LoggingTests` | Inicio y fin, Warning y Error con `ErrorCode` | 4 |
-| `Integration/HealthCheckTests` | Los 3 endpoints y la persistencia caída | 4 |
+| `Integration/HealthCheckTests` | Los 3 endpoints, Users en `ready` (también caído: `Degraded`) y la persistencia caída | 6 |
 | `Integration/UnexpectedErrorTests` | NTF-004 y el detalle por entorno | 3 |
 | `Integration/DependencyInjectionTests` | Configuración real: servicio y typed client con URL y timeout | 2 |
 | `Integration/SmokeTests` | Que la API arranque | 1 |
-| Auxiliares: `NotificationsApiFactory` (con `FakeUsersClient`), `ErrorContractAssert`, `CollectingSink` | — | — |
+| Auxiliares: `NotificationsApiFactory` (con `FakeUsersApi`), `Unit/FakeHttpHandler`, `ErrorContractAssert`, `CollectingSink` | — | — |
 
 ---
 
@@ -308,16 +315,28 @@ El resto es la plantilla de Products: ver su [mapa de archivos](repaso-products-
 
 ---
 
-## 10. Lo que falta: Etapa 9
+## 10. Etapa 9: integración con Users
 
-| Pendiente | Por qué | Cómo |
+Los pendientes se resolvieron copiando las dos clases que Thomas creó para Products y Cart ([repaso de Cart, sección 10](repaso-cart-api.md#10-etapa-9-integración-con-products)), porque no se comparte código entre servicios (D-05):
+
+| Pendiente | Por qué | Cómo quedó |
 |---|---|---|
-| Propagar el Correlation ID a Users | Hoy un mismo envío aparece con dos IDs distintos en los logs de los dos servicios | `CorrelationIdDelegatingHandler` en el typed client de `UsersClient` |
-| Users en `/health/ready` | Notifications no está "listo" si Users no responde | `DownstreamServiceHealthCheck` que consulta `/health/live` de Users |
-| Prueba con los dos servicios levantados | Verificar NTF-001 con el Users real y NTF-004 con Users detenido | Como la [sección 7 del repaso de Cart](repaso-cart-api.md#7-la-prueba-con-los-dos-servicios-levantados) |
-| (Opcional) Orders notifica los cambios de estado | Mejora sugerida en el plan | Orders llama a `POST /api/notifications/send` |
+| Propagar el Correlation ID a Users | Un mismo envío aparecía con dos IDs distintos en los logs de los dos servicios | `CorrelationIdDelegatingHandler` enganchado al typed client con `AddHttpMessageHandler` |
+| Users en `/health/ready` | `ready` solo verificaba la persistencia | `DownstreamServiceHealthCheck` consulta `/health/live` de Users; si no responde, `Degraded` |
+| Timeout en `UsersClient` | Ya estaba desde la Etapa 8 | 5 segundos |
+| Casos de demo en el `.http` | Mostrar la integración en la defensa | Envío con `X-Correlation-Id: demo-notifications`, `/health/ready` con Users detenido y NTF-004 |
 
-El timeout del cliente (otra tarea de la Etapa 9) ya está hecho: 5 segundos.
+**¿Por qué `Degraded` y no `Unhealthy`?** Con Users caído, Notifications sigue listando notificaciones (no consulta a Users, D-30); solo fallan los envíos. `Degraded` responde 200 (D-24), así que el servicio sigue recibiendo tráfico.
+
+**Resultado con los dos servicios levantados (18/10):**
+
+- Un `POST /api/notifications/send` con `X-Correlation-Id: prueba-real-etapa9` respondió 201, y el mismo ID apareció en los logs de Users.
+- `/health/ready` de Notifications: `persistencia` y `Users.API` en Healthy.
+- Con Users apagado: `/health/ready` pasó a `Degraded` y el envío respondió 500 con NTF-004.
+
+**El cambio en los tests (sección 6):** como en Cart, el factory pasó de reemplazar todo el cliente (`FakeUsersClient`) a reemplazar solo la red (`FakeUsersApi`), para probar el `UsersClient` real con su `DelegatingHandler`. Se sumaron 13 tests: 7 unitarios del handler y del health check, 4 de integración con Users y 2 de `/health/ready`.
+
+**Opcional descartado:** que Orders notifique los cambios de estado. Sumaría una dependencia nueva (Orders → Notifications) y el enunciado no lo pide.
 
 ---
 
@@ -327,7 +346,7 @@ El timeout del cliente (otra tarea de la Etapa 9) ya está hecho: 5 segundos.
 Se lo pregunta a Users.API con `GET /api/users/{id}` a través de `IUsersClient`. Si Users responde 404, es NTF-001. Notifications no tiene acceso a los datos de Users.
 
 **¿Qué pasa si Users.API está caído?**
-`UsersClient` lanza una excepción (o corta a los 5 segundos), el handler global responde 500 con NTF-004 y el error queda en el log. Listar notificaciones sigue funcionando, porque no consulta a Users (D-29, D-30).
+`UsersClient` lanza una excepción (o corta a los 5 segundos), el handler global responde 500 con NTF-004 y el error queda en el log. Listar notificaciones sigue funcionando, porque no consulta a Users (D-29, D-30). Su `/health/ready` informa `Degraded`.
 
 **¿Por qué el envío está detrás de una interfaz si es simulado?**
 Porque depende del entorno: hoy es simulado y mañana puede ser un mail real. Con `INotificationSender`, ese cambio es una clase nueva y una línea de registro, sin tocar el servicio.
@@ -345,4 +364,4 @@ Porque no existe un endpoint para obtener una sola notificación por id: no hay 
 Sí (D-31). El bloqueo impide iniciar sesión, no recibir avisos.
 
 **¿Cómo testean Notifications sin levantar Users?**
-Igual que Cart: `UsersClient` con un handler HTTP falso, Notifications completo con un `FakeUsersClient` donde solo existe María, y una prueba manual con los dos servicios.
+Igual que Cart: `UsersClient` con un handler HTTP falso, Notifications completo con un `FakeUsersApi` (reemplaza solo la red) donde solo existe María, y una prueba manual con los dos servicios.

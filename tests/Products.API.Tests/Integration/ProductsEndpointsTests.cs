@@ -1,11 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using NSubstitute;
-using Products.API.Clients;
 using Products.API.DTOs;
 using Products.API.Exceptions;
 
@@ -218,22 +213,7 @@ public class ProductsEndpointsTests(ProductsApiFactory factory) : IClassFixture<
             instance: $"/api/products/{id}");
     }
 
-    [Fact]
-    public async Task Delete_ProductoConOrdenesActivas_Devuelve409ConPRD004()
-    {
-        var ordersClient = Substitute.For<IOrdersClient>();
-        ordersClient.HasActiveOrdersAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
-        var client = factory
-            .WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton(ordersClient)))
-            .CreateClient();
-
-        var response = await client.DeleteAsync($"/api/products/{NotebookId}");
-
-        var body = await ErrorContractAssert.IsErrorAsync(response, HttpStatusCode.Conflict, ErrorCodes.PRD_004,
-            instance: $"/api/products/{NotebookId}",
-            errorMessage: "El producto tiene órdenes activas y no puede eliminarse.");
-        Assert.Equal("No se puede eliminar el recurso.", body.GetProperty("detail").GetString());
-    }
+    // PRD-004 (producto con órdenes activas) se prueba con el OrdersClient real en OrdersIntegrationTests.
 
     // ---------- Helpers ----------
 

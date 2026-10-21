@@ -57,6 +57,46 @@ public class HealthCheckTests(ProductsApiFactory factory) : IClassFixture<Produc
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Ready_IncluyeElChequeoDeOrders()
+    {
+        var response = await factory.CreateClient().GetAsync("/health/ready");
+
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var check = Assert.Single(body.RootElement.GetProperty("checks").EnumerateArray(),
+            c => c.GetProperty("name").GetString() == "Orders.API");
+        Assert.Equal("Healthy", check.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Ready_OrdersCaido_Devuelve200Degraded()
+    {
+        // D-24: una dependencia caída degrada el servicio pero no lo saca de servicio (solo falla el DELETE).
+        using var conOrdersCaido = new ProductsApiFactory();
+        conOrdersCaido.OrdersApi.Caido = true;
+
+        var response = await conOrdersCaido.CreateClient().GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("Degraded", body.RootElement.GetProperty("status").GetString());
+        var check = Assert.Single(body.RootElement.GetProperty("checks").EnumerateArray(),
+            c => c.GetProperty("name").GetString() == "Orders.API");
+        Assert.Equal("Degraded", check.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Live_OrdersCaido_SigueHealthy()
+    {
+        using var conOrdersCaido = new ProductsApiFactory();
+        conOrdersCaido.OrdersApi.Caido = true;
+
+        var response = await conOrdersCaido.CreateClient().GetAsync("/health/live");
+
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("Healthy", body.RootElement.GetProperty("status").GetString());
+    }
+
     private HttpClient ClienteConRepositorioCaido()
     {
         var repository = Substitute.For<IProductRepository>();

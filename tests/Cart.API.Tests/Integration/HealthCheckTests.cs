@@ -9,8 +9,7 @@ using NSubstitute.ExceptionExtensions;
 namespace Cart.API.Tests.Integration;
 
 /// <summary>
-/// Requisitos de la sección 5.4 del enunciado. La dependencia con Products.API en /health/ready
-/// se agrega en la Etapa 9.
+/// Requisitos de la sección 5.4 del enunciado, con Products.API en /health/ready (Etapa 9).
 /// </summary>
 public class HealthCheckTests(CartApiFactory factory) : IClassFixture<CartApiFactory>
 {
@@ -27,6 +26,38 @@ public class HealthCheckTests(CartApiFactory factory) : IClassFixture<CartApiFac
         Assert.Equal("Healthy", body.RootElement.GetProperty("status").GetString());
         Assert.Equal("Cart.API", body.RootElement.GetProperty("servicio").GetString());
         Assert.NotEmpty(body.RootElement.GetProperty("checks").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Ready_IncluyeElChequeoDeProducts()
+    {
+        var response = await factory.CreateClient().GetAsync("/health/ready");
+
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var check = Assert.Single(body.RootElement.GetProperty("checks").EnumerateArray(),
+            c => c.GetProperty("name").GetString() == "Products.API");
+        Assert.Equal("Healthy", check.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Ready_ProductsCaido_Devuelve200DegradedYLiveSigueHealthy()
+    {
+        // D-24: sin Products fallan las altas y cambios de cantidad, pero se puede consultar y vaciar el carrito.
+        using var conProductsCaido = new CartApiFactory();
+        conProductsCaido.ProductsApi.Caido = true;
+        var client = conProductsCaido.CreateClient();
+
+        var ready = await client.GetAsync("/health/ready");
+        var live = await client.GetAsync("/health/live");
+
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+        using var body = JsonDocument.Parse(await ready.Content.ReadAsStringAsync());
+        Assert.Equal("Degraded", body.RootElement.GetProperty("status").GetString());
+        var check = Assert.Single(body.RootElement.GetProperty("checks").EnumerateArray(),
+            c => c.GetProperty("name").GetString() == "Products.API");
+        Assert.Equal("Degraded", check.GetProperty("status").GetString());
+        using var liveBody = JsonDocument.Parse(await live.Content.ReadAsStringAsync());
+        Assert.Equal("Healthy", liveBody.RootElement.GetProperty("status").GetString());
     }
 
     [Fact]

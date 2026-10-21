@@ -26,10 +26,10 @@ flowchart LR
     orders -- "GET /api/products/{id}<br/>precio y stock" --> products
     orders -- "GET /api/users/{id}<br/>ORD-003" --> users
     notifications -- "GET /api/users/{id}<br/>NTF-001" --> users
-    products -. "GET /api/orders?productoId=<br/>PRD-004 (Etapa 9)" .-> orders
+    products -. "GET /api/orders?productoId=<br/>PRD-004" .-> orders
 ```
 
-La flecha punteada es la única dependencia en sentido inverso (Products ↔ Orders). Hasta la Etapa 9, Products usa `StubOrdersClient` y no llama a Orders.
+La flecha punteada es la única dependencia en sentido inverso (Products ↔ Orders): Products solo llama a Orders al borrar un producto. Si Orders no responde, el borrado falla con PRD-005 y no se hace (D-39).
 
 ---
 
@@ -113,12 +113,19 @@ classDiagram
         +HasActiveOrdersAsync(productId, ct) bool
     }
 
-    class StubOrdersClient {
-        siempre false (hasta la Etapa 9)
+    class OrdersClient {
+        GET /api/orders?productoId=
     }
 
-    class OrdersClient {
-        HTTP a Orders.API (Etapa 9)
+    class OrderInfo {
+        <<record>>
+        +Guid Id
+        +string Estado
+        +EstaActiva bool
+    }
+
+    class CorrelationIdDelegatingHandler {
+        agrega X-Correlation-Id
     }
 
     class TimeProvider {
@@ -169,8 +176,9 @@ classDiagram
     ProductService ..> TimeProvider
     InMemoryProductRepository ..|> IProductRepository
     InMemoryProductRepository ..> ProductSeedData : datos iniciales
-    StubOrdersClient ..|> IOrdersClient
     OrdersClient ..|> IOrdersClient
+    OrdersClient ..> OrderInfo : lee
+    OrdersClient ..> CorrelationIdDelegatingHandler : HttpClient con
 
     IProductService ..> CreateProductRequest : recibe
     IProductService ..> UpdateProductRequest : recibe
@@ -283,7 +291,7 @@ Cart.API repite la plantilla de Products y suma la primera **comunicación entre
 
 ### 5.1 Diagrama de clases
 
-`CartService` depende de `IProductsClient`, no de HTTP. `ProductsClient` recibe un `HttpClient` ya configurado por `IHttpClientFactory` con la URL de `appsettings.json`. En los tests de integración, `FakeProductsClient` reemplaza al cliente real.
+`CartService` depende de `IProductsClient`, no de HTTP. `ProductsClient` recibe un `HttpClient` ya configurado por `IHttpClientFactory` con la URL de `appsettings.json`, un timeout de 5 segundos y el `CorrelationIdDelegatingHandler`. En los tests de integración solo se reemplaza la red, con `FakeProductsApi`.
 
 ```mermaid
 classDiagram
@@ -335,8 +343,12 @@ classDiagram
         GET api/products/id
     }
 
-    class FakeProductsClient {
-        catálogo fijo (solo en tests)
+    class CorrelationIdDelegatingHandler {
+        agrega X-Correlation-Id
+    }
+
+    class DownstreamServiceHealthCheck {
+        GET health/live de Products
     }
 
     class IHttpClientFactory {
@@ -372,8 +384,9 @@ classDiagram
     CartService ..> IProductsClient
     InMemoryCartRepository ..|> ICartRepository
     ProductsClient ..|> IProductsClient
-    FakeProductsClient ..|> IProductsClient
-    IHttpClientFactory ..> ProductsClient : crea con BaseUrl
+    IHttpClientFactory ..> ProductsClient : crea con BaseUrl y timeout
+    ProductsClient ..> CorrelationIdDelegatingHandler : HttpClient con
+    DownstreamServiceHealthCheck ..> IHttpClientFactory : mismo cliente
     ICartRepository ..> ShoppingCart : persiste
     ShoppingCart *-- CartItem
     IProductsClient ..> ProductInfo : devuelve

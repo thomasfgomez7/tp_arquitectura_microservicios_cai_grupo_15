@@ -24,7 +24,7 @@ public class LoggingTests(NotificationsApiFactory factory) : IClassFixture<Notif
     {
         var (client, sink) = ClienteConSink();
         var request = ConCorrelationId(HttpMethod.Post, SendUrl, "log-ok");
-        request.Content = JsonContent.Create(new { usuarioId = FakeUsersClient.Maria, mensaje = "Hola", tipo = "Email" });
+        request.Content = JsonContent.Create(new { usuarioId = FakeUsersApi.Maria, mensaje = "Hola", tipo = "Email" });
 
         var response = await client.SendAsync(request);
         await response.Content.ReadAsStringAsync();
@@ -75,7 +75,7 @@ public class LoggingTests(NotificationsApiFactory factory) : IClassFixture<Notif
             .ThrowsAsync(new InvalidOperationException("Falla simulada"));
         var (client, sink) = ClienteConSink(s => s.AddScoped(_ => service));
 
-        await client.SendAsync(ConCorrelationId(HttpMethod.Get, $"/api/notifications/{FakeUsersClient.Maria}", "log-error"));
+        await client.SendAsync(ConCorrelationId(HttpMethod.Get, $"/api/notifications/{FakeUsersApi.Maria}", "log-error"));
 
         var evento = await sink.WaitForAsync(e => e.Property("CorrelationId") == "log-error" && e.Level == LogEventLevel.Error);
         Assert.Equal(ErrorCodes.NTF_004, evento.Property("ErrorCode"));

@@ -23,7 +23,7 @@ public class DependencyInjectionTests : IDisposable
     }
 
     [Fact]
-    public void ProductsClient_SeRegistraComoTypedClientConLaUrlDeProducts()
+    public void ProductsClient_SeRegistraComoTypedClientConLaUrlYElTimeoutDeProducts()
     {
         using var scope = _factory.Services.CreateScope();
 
@@ -32,6 +32,7 @@ public class DependencyInjectionTests : IDisposable
         // AddHttpClient<IProductsClient, ProductsClient> registra un cliente con el nombre de la interfaz.
         var httpClient = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(IProductsClient));
         Assert.Equal(new Uri("http://localhost:5001/"), httpClient.BaseAddress);
+        Assert.Equal(TimeSpan.FromSeconds(5), httpClient.Timeout);
     }
 
     public void Dispose() => _factory.Dispose();

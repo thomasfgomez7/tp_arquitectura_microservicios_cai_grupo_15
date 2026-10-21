@@ -34,15 +34,15 @@ Aspectos transversales en **todos** los servicios: contrato de errores con `erro
 | Cart.API | http://localhost:5004 |
 | Notifications.API | http://localhost:5005 |
 
-### Estado actual (07/10/2026)
+### Estado actual (18/10/2026)
 
 | Servicio | Responsable | Estado | Tests |
 |---|---|---|---|
-| Products.API | Thomas | ✅ Completo (Etapas 1–4). Falta la integración real con Orders (Etapa 9). | 71 |
-| Cart.API | Thomas | ✅ Completo (Etapa 6). Falta propagar el Correlation ID y sumar Products a `/health/ready` (Etapa 9). | 90 |
-| Users.API | Juan Pablo | ✅ Completo (Etapa 5): registro, login, bloqueo y `GET /api/users/{id}`, con la plantilla replicada. Sin tareas en la Etapa 9. | 72 |
-| Notifications.API | Juan Pablo | ✅ Completo (Etapa 8), con `UsersClient` real y la plantilla replicada. Falta propagar el Correlation ID y sumar Users a `/health/ready` (Etapa 9). | 57 |
-| Orders.API | Juan Pablo | ⬜ Esqueleto (Bloque 5). | 1 |
+| Products.API | Thomas | ✅ Completo (Etapas 1–4) e integrado con Orders (Etapa 9): `OrdersClient` real para PRD-004, Correlation ID saliente y Orders en `/health/ready`. | 97 |
+| Cart.API | Thomas | ✅ Completo (Etapa 6) e integrado con Products (Etapa 9): Correlation ID saliente, Products en `/health/ready` y timeout. | 101 |
+| Users.API | Juan Pablo | ✅ Completo (Etapa 5): registro, login, bloqueo y `GET /api/users/{id}`, con la plantilla replicada. Sin tareas en la Etapa 9; `.http` revisado para la demo (Etapa 10). | 72 |
+| Notifications.API | Juan Pablo | ✅ Completo (Etapa 8) e integrado con Users (Etapa 9): Correlation ID saliente, Users en `/health/ready` y timeout. | 70 |
+| Orders.API | Juan Pablo | ✅ Completo (Etapa 7): los 4 endpoints, máquina de estados, `UsersClient` y `ProductsClient` reales con timeout de 5 segundos, y la plantilla replicada. Integrado con Users y Products (Etapa 9): Correlation ID saliente y los dos en `/health/ready`; orden semilla para PRD-004 (Etapa 10). | 153 |
 
 ---
 
@@ -73,6 +73,7 @@ ECommerce.slnx
 │   ├── arquitectura/             # diagramas del sistema, de clases y de secuencia
 │   ├── repasos/                  # repaso general + un repaso por API (repaso-<servicio>-api.md)
 │   └── capturas/                 # capturas de Swagger para el entregable (Etapa 10)
+├── scripts/                      # start-all.sh / start-all.ps1 y capture-swagger.py (Etapa 10)
 └── README.md
 ```
 
@@ -189,7 +190,7 @@ Clases concretas comunes (sin interfaz): `ErrorCodes`, `NotFoundException`, `Bus
 |---|---|---|---|---|---|
 | `IProductService` | `ProductService` | `Services/` | Reglas de negocio de productos (PRD-001 a PRD-004) | Scoped | 1 |
 | `IProductRepository` | `InMemoryProductRepository` → adaptador de la librería de la cátedra | `Repositories/` | Guardar y consultar productos | Singleton | 1 |
-| `IOrdersClient` | `StubOrdersClient` (provisoria) → `OrdersClient` | `Clients/` | Saber si un producto tiene órdenes activas | Singleton (stub) · typed client (HTTP) | 1 y 9 |
+| `IOrdersClient` | `OrdersClient` (reemplazó a `StubOrdersClient` en la Etapa 9) | `Clients/` | Saber si un producto tiene órdenes activas | Typed client | 1 y 9 |
 
 Clases concretas: `ProductsController`, `Product`, `CreateProductRequest`, `UpdateProductRequest`, `ProductResponse`, `ProductSeedData` (`Repositories/`, datos de la demo con IDs fijos), `OrderInfo`.
 
@@ -222,7 +223,7 @@ Clases concretas: `CartController`, `ShoppingCart` (no `Cart`: ese nombre choca 
 | `IUsersClient` | `UsersClient` | `Clients/` | Verificar que el usuario exista en Users.API | Typed client | 7 |
 | `IProductsClient` | `ProductsClient` | `Clients/` | Consultar existencia, precio y stock en Products.API | Typed client | 7 |
 
-Clases concretas: `OrdersController`, `Order`, `OrderItem`, `OrderStatus` (enum), `CreateOrderRequest`, `CreateOrderItemRequest`, `UpdateOrderStatusRequest`, `OrderResponse`, `OrderItemResponse`, `OrderStatusResponse`, `OrderStatusTransitions` (`Services/`, máquina de estados), `UserInfo`, `ProductInfo`.
+Clases concretas: `OrdersController`, `Order`, `OrderItem`, `OrderStatus` (enum), `CreateOrderRequest`, `CreateOrderItemRequest`, `UpdateOrderStatusRequest`, `OrderResponse`, `OrderItemResponse`, `OrderStatusResponse`, `OrderStatusTransitions` (`Services/`, máquina de estados), `OrderSeedData` (`Repositories/`, la orden del ejemplo del enunciado para mostrar PRD-004), `UserInfo`, `ProductInfo`, `OrderRepositoryHealthCheck` (`Infrastructure/`).
 
 #### Notifications.API — Juan Pablo
 
@@ -260,7 +261,7 @@ Clases concretas: `NotificationsController`, `Notification`, `NotificationType` 
 |---|---|---|---|
 | H1 | Bloque 1 | Solución, proyectos y tests compilando | ✅ PR #1 (27/09) |
 | H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | 🟡 Products y Users listos; falta el PR |
-| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Products, Users, Cart y Notifications listos; falta Orders |
+| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Los cinco servicios completos; falta el PR |
 | H4 | Bloque 7 | Integración entre servicios, documentación y entrega | ⬜ |
 
 Los bloques se describen en la sección 4.2.
@@ -382,7 +383,7 @@ Para que cada uno pueda avanzar sin esperar al otro, estos contratos se fijan en
 |---|---|---|
 | Cart, Orders | `GET /api/products/{id}` (Products) | 200 con `id`, `nombre`, `precio` y `stock`; 404 si no existe |
 | Orders, Notifications | `GET /api/users/{id}` (Users) | 200 con `id`, `nombre`, `apellido`, `email`, `fechaRegistro` y `activo`; 404 (USR-007) si no existe |
-| Products | `GET /api/orders?productoId={id}` (Orders) | 200 con la lista de órdenes que incluyen ese producto; se revisa `estado` |
+| Products | `GET /api/orders?productoId={id}` (Orders) | 200 con la lista de órdenes que incluyen ese producto, con el mismo formato que `GET /api/orders/{id}`; se revisa `estado` (activa = Pendiente o Confirmada). Sin órdenes, o con un id que no es GUID, 200 con `[]` (D-37) |
 
 **Header:** `X-Correlation-Id` en todas las llamadas entre servicios.
 
@@ -438,11 +439,18 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-25 | En Cart, todo dato inválido (cantidad ≤ 0, producto o cantidad faltante, JSON mal formado) responde 400 con CRT-004, y el `errorMessage` lista los problemas. | CRT-004 es el único código 400 del catálogo de Cart. |
 | D-26 | `PUT` y `DELETE` de un item que no está en el carrito responden 404 con CRT-002 y el mensaje "El producto no se encuentra en el carrito.". | El catálogo no tiene un código para ese caso; CRT-002 es el "producto no encontrado" de Cart. |
 | D-27 | `DELETE /api/cart/{userId}` (vaciar) elimina el carrito: después, `GET` responde CRT-001. Quitar el último item con `DELETE .../items/{productId}` deja el carrito vacío. | "Vaciar el carrito completo" deja al usuario sin carrito activo; el siguiente `POST /items` crea uno nuevo. |
-| D-28 | Si Products.API responde un error distinto de 404 o no responde, `ProductsClient` lanza una excepción y el handler global responde 500 con CRT-005. | Es una falla de infraestructura, no un dato del negocio. El catálogo de Cart no tiene un código para "servicio no disponible". |
+| D-28 | Si Products.API responde un error distinto de 404 o no responde (timeout de 5 segundos), `ProductsClient` lanza una excepción y el handler global responde 500 con CRT-005. | Es una falla de infraestructura, no un dato del negocio. El catálogo de Cart no tiene un código para "servicio no disponible". |
 | D-29 | Si Users.API responde un error distinto de 404 o no responde (timeout de 5 segundos), `UsersClient` de Notifications lanza una excepción y el handler global responde 500 con NTF-004. | Mismo criterio que D-28: es una falla de infraestructura, no un dato del negocio. |
 | D-30 | `GET /api/notifications/{userId}` no consulta a Users.API: un usuario sin notificaciones, exista o no, responde 404 con NTF-003; un id que no es GUID también (D-17). | El catálogo define NTF-001 solo para el POST, y una llamada HTTP extra no cambiaría el resultado. |
 | D-31 | Se puede enviar una notificación a un usuario bloqueado (`Activo = false`): Notifications solo verifica que exista. | El bloqueo impide iniciar sesión, no recibir avisos. |
 | D-32 | El formato del email se valida con `[RegularExpression]` y no con `[EmailAddress]`. | Con un email vacío, `[EmailAddress]` sumaba un segundo error ("formato inválido") al de `[Required]`; `[RegularExpression]` ignora los valores vacíos. |
+| D-33 | `Order` tiene un campo `FechaActualizacion`, que no está en el Apéndice A. Al crear la orden vale lo mismo que `FechaCreacion`; cada cambio de estado lo actualiza. | La respuesta de `PUT /api/orders/{id}/status` del enunciado incluye `fechaActualizacion`. |
+| D-34 | Si un producto aparece en varios items de la misma orden, se unen en uno y el stock se valida contra la suma. | Si no, se podría pedir 3 + 3 de un producto con stock 5. Mismo criterio que D-13. |
+| D-35 | Un usuario bloqueado (`Activo = false`) puede crear órdenes: Orders solo verifica que exista. | El catálogo no tiene un código para ese caso, y el bloqueo impide iniciar sesión. Mismo criterio que D-31. |
+| D-36 | Si Users.API o Products.API responden un error distinto de 404 o no responden (timeout de 5 segundos), los clientes de Orders lanzan una excepción y el handler global responde 500 con ORD-007. | Mismo criterio que D-28 y D-29: es una falla de infraestructura, no un dato del negocio. |
+| D-37 | En `GET /api/orders`, un filtro (`usuarioId` o `productoId`) que no es un GUID devuelve 200 con `[]`. | El endpoint solo admite 200 y 500 (D-12): un filtro inválido no coincide con ninguna orden. |
+| D-38 | `POST /api/orders` no devuelve ni documenta el 409 que lista el enunciado. | El catálogo no tiene ningún error 409 al crear una orden (ORD-006 es del `PUT /status`). Se consulta con los docentes. |
+| D-39 | Si Orders.API responde un error o no responde (timeout de 5 segundos), `DELETE /api/products/{id}` responde 500 con PRD-005 y **no** borra el producto. `/health/ready` de Products informa `Degraded`. | Sin saber si hay órdenes activas no se puede aplicar PRD-004, y un borrado no se puede deshacer ("fallar cerrado"). El resto de los endpoints no depende de Orders, por eso es `Degraded` y no `Unhealthy`. |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -471,6 +479,8 @@ Este código se documenta en Swagger y en la tabla de códigos de error del READ
 
 - [ ] Recibir la librería de persistencia de la cátedra y reemplazar los repositorios en memoria.
 - [ ] Consultar con los docentes si están de acuerdo con los endpoints adicionales (D-06, D-07) y el código USR-007.
+- [ ] Consultar con los docentes el 409 de `POST /api/orders`, que ningún código del catálogo produce (D-38).
+- [x] Acordar si Orders tiene una orden semilla Pendiente con la Notebook, para mostrar PRD-004 en la demo: **sí** (12/10). La implementación es una tarea de Juan Pablo en la Etapa 10.
 
 ---
 
@@ -666,33 +676,33 @@ Capa HTTP y transversales (replicando la plantilla):
 Objetivo: creación de órdenes validando contra otros servicios y ciclo de estados.
 
 Tests primero:
-- [ ] Crear una orden sin items o con datos inválidos lanza ORD-002.
-- [ ] Usuario inexistente lanza ORD-003; producto inexistente, ORD-004; stock insuficiente, ORD-005.
-- [ ] `precioUnitario` se toma del producto y `total` se calcula correctamente.
-- [ ] `OrderStatusTransitions`: tests parametrizados con todas las transiciones válidas e inválidas (ORD-006).
-- [ ] Un estado desconocido en `PUT /status` lanza ORD-002.
-- [ ] Listar filtra por `usuarioId` y por `productoId` (D-07).
-- [ ] Contrato de errores completo (ORD-001 a ORD-007) en tests de integración.
+- [x] Crear una orden sin items o con datos inválidos lanza ORD-002.
+- [x] Usuario inexistente lanza ORD-003; producto inexistente, ORD-004; stock insuficiente, ORD-005.
+- [x] `precioUnitario` se toma del producto y `total` se calcula correctamente.
+- [x] `OrderStatusTransitions`: tests parametrizados con todas las transiciones válidas e inválidas (ORD-006).
+- [x] Un estado desconocido en `PUT /status` lanza ORD-002.
+- [x] Listar filtra por `usuarioId` y por `productoId` (D-07).
+- [x] Contrato de errores completo (ORD-001 a ORD-007) en tests de integración.
 
 Lógica de negocio:
 
 Clases concretas:
-- [ ] `Order`, `OrderItem`, `OrderStatus` (Models) y `CreateOrderRequest`, `CreateOrderItemRequest`, `UpdateOrderStatusRequest`, `OrderResponse`, `OrderItemResponse`, `OrderStatusResponse` (DTOs).
-- [ ] `UserInfo` y `ProductInfo` (`Clients/`).
-- [ ] `ErrorCodes` (`ORD_001` … `ORD_007`) y excepciones.
-- [ ] `OrderStatusTransitions`: máquina de estados. Pendiente → Confirmada → Enviada → Entregada; Pendiente o Confirmada → Cancelada.
+- [x] `Order`, `OrderItem`, `OrderStatus` (Models) y `CreateOrderRequest`, `CreateOrderItemRequest`, `UpdateOrderStatusRequest`, `OrderResponse`, `OrderItemResponse`, `OrderStatusResponse` (DTOs).
+- [x] `UserInfo` y `ProductInfo` (`Clients/`).
+- [x] `ErrorCodes` (`ORD_001` … `ORD_007`) y excepciones.
+- [x] `OrderStatusTransitions`: máquina de estados. Pendiente → Confirmada → Enviada → Entregada; Pendiente o Confirmada → Cancelada.
 
 Interfaces → implementaciones:
-- [ ] `IOrderRepository` → `InMemoryOrderRepository`.
-- [ ] `IUsersClient` → `UsersClient` (se puede tomar como referencia el de Notifications).
-- [ ] `IProductsClient` → `ProductsClient` (se puede tomar como referencia el de Cart).
-- [ ] `IOrderService` → `OrderService`.
+- [x] `IOrderRepository` → `InMemoryOrderRepository`.
+- [x] `IUsersClient` → `UsersClient` (se puede tomar como referencia el de Notifications).
+- [x] `IProductsClient` → `ProductsClient` (se puede tomar como referencia el de Cart).
+- [x] `IOrderService` → `OrderService`.
 
 Capa HTTP y transversales (replicando la plantilla):
-- [ ] `OrdersController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
-- [ ] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
-- [ ] `Orders.API.http` con requests de éxito y de error.
-- [ ] `docs/repasos/repaso-orders-api.md` (convención "Documentación por API").
+- [x] `OrdersController`, `ErrorResponseWriter` y los cuatro `IExceptionHandler`.
+- [x] `ICorrelationIdAccessor` → `CorrelationIdAccessor`, middlewares, Serilog, Swagger y Health Checks.
+- [x] `Orders.API.http` con requests de éxito y de error.
+- [x] `docs/repasos/repaso-orders-api.md` (convención "Documentación por API").
 
 ### Etapa 8 — Notifications.API
 
@@ -733,38 +743,41 @@ Capa HTTP y transversales (Bloque 4, replicando la plantilla):
 Objetivo: que los servicios colaboren de punta a punta.
 
 Tests primero:
-- [ ] `CorrelationIdDelegatingHandler`: las llamadas salientes incluyen el `X-Correlation-Id` del request original.
-- [ ] `DownstreamServiceHealthCheck`: `/health/ready` informa `Degraded` si un servicio del que depende no responde.
+- [x] `CorrelationIdDelegatingHandler`: las llamadas salientes incluyen el `X-Correlation-Id` del request original (los cuatro servicios que llaman a otros).
+- [x] `DownstreamServiceHealthCheck`: `/health/ready` informa `Degraded` si un servicio del que depende no responde (Products, Cart, Orders y Notifications).
 
 Thomas (Products y Cart):
-- [ ] `IOrdersClient` → `OrdersClient` (HTTP, con `OrderInfo`), probado contra el contrato de la sección 4.4. Se elimina `StubOrdersClient`.
-- [ ] `CorrelationIdDelegatingHandler` (hereda de `DelegatingHandler`) en los clientes HTTP de Products y Cart.
-- [ ] `DownstreamServiceHealthCheck` (implementa `IHealthCheck`) en `/health/ready` de Products (depende de Orders) y Cart (depende de Products).
-- [ ] Timeouts configurados en los clientes HTTP.
+- [x] `IOrdersClient` → `OrdersClient` (HTTP, con `OrderInfo`), probado contra el contrato de la sección 4.4. Se elimina `StubOrdersClient` (D-39).
+- [x] `CorrelationIdDelegatingHandler` (hereda de `DelegatingHandler`) en los clientes HTTP de Products y Cart.
+- [x] `DownstreamServiceHealthCheck` (implementa `IHealthCheck`) en `/health/ready` de Products (depende de Orders) y Cart (depende de Products).
+- [x] Timeouts configurados en los clientes HTTP (5 segundos, como en Orders y Notifications).
 
 Juan Pablo (Orders y Notifications):
-- [ ] `CorrelationIdDelegatingHandler` en los clientes HTTP de Orders y Notifications.
-- [ ] `DownstreamServiceHealthCheck` en `/health/ready` de Orders (depende de Users y Products) y Notifications (depende de Users).
-- [ ] Timeouts configurados en los clientes HTTP (Notifications ✅ 5 segundos; falta Orders).
-- [ ] (Opcional) Orders.API notifica a Notifications.API cuando cambia el estado de una orden.
-- [ ] (Opcional) Descontar stock al crear una orden (D-14).
+- [x] `CorrelationIdDelegatingHandler` en los clientes HTTP de Orders y Notifications.
+- [x] `DownstreamServiceHealthCheck` en `/health/ready` de Orders (depende de Users y Products) y Notifications (depende de Users).
+- [x] Timeouts configurados en los clientes HTTP (5 segundos en Notifications y en los dos clientes de Orders).
+- [ ] ~~(Opcional) Orders.API notifica a Notifications.API cuando cambia el estado de una orden.~~ **Descartado (18/10):** suma una dependencia nueva y el enunciado no lo pide.
+- [ ] ~~(Opcional) Descontar stock al crear una orden (D-14).~~ **Descartado (18/10):** requiere un endpoint nuevo en Products y manejar fallas a mitad de camino; el enunciado no lo exige.
 
 ### Etapa 10 — Documentación y entregables
 
 **Responsables:** Thomas y Juan Pablo · **Bloque:** 6
 
 Thomas:
-- [ ] README: cómo ejecutar cada servicio, tabla de puertos y descripción de cada servicio.
-- [ ] Diagrama de arquitectura (ASCII o imagen) en el README.
-- [ ] Script para levantar los cinco servicios juntos.
-- [ ] Capturas de Swagger UI con ejemplos de error (`errorCode` y `errorMessage`) en `docs/capturas/`.
+- [x] README: cómo ejecutar cada servicio, tabla de puertos, descripción de cada servicio y datos de prueba.
+- [x] Diagrama de arquitectura en el README (Mermaid, con una versión ASCII).
+- [x] Script para levantar los cinco servicios juntos: `scripts/start-all.sh` (macOS y Linux, probado) y `scripts/start-all.ps1` (Windows).
+- [x] Capturas de Swagger UI con ejemplos de error (`errorCode` y `errorMessage`) en `docs/capturas/`, generadas con `scripts/capture-swagger.py`.
 
 Juan Pablo:
-- [ ] Tabla completa de códigos de error en el README, incluyendo USR-007.
-- [ ] Decisiones de diseño (sección 5 de este documento) en el README.
+- [x] Tabla completa de códigos de error en el README, incluyendo USR-007.
+- [x] Decisiones de diseño (sección 5 de este documento) en el README.
+- [x] Orden semilla en Orders.API: Pendiente, de María, con la Notebook (`3fa85f64-…`), para que `DELETE /api/products/3fa85f64-…` responda PRD-004 apenas se levantan los servicios. La tabla "Datos de prueba" del README la incluye.
+- [ ] Probar `scripts/start-all.ps1` en Windows: levantar los cinco servicios, verificar las URLs que muestra y que Enter los detenga. No se pudo probar en macOS: usa `Get-NetTCPConnection` y `taskkill`, que solo existen en Windows.
 
-Ambos:
-- [ ] Archivos `.http` de sus servicios con casos de éxito y de error, revisados para la demo.
+Archivos `.http` con casos de éxito y de error, revisados para la demo:
+- [x] Products y Cart (Thomas): PRD-004 de punta a punta con Orders, Correlation ID hacia otro servicio y `/health/ready` con la dependencia caída.
+- [x] Users, Orders y Notifications (Juan Pablo): login 400, bloqueo en vivo (D-09), PRD-004 con la orden semilla, Correlation ID hacia otro servicio, `/health/ready` con la dependencia caída y el 500 de cada servicio con su dependencia detenida.
 
 ### Etapa 11 — Prueba integral y defensa
 

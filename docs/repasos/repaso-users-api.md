@@ -204,6 +204,8 @@ La parte transversal se copió de Cart cambiando el namespace, con estas adaptac
 
 Tiene un request para cada caso de éxito y uno por cada código USR, usando los tres usuarios semilla, más los de Correlation ID y health checks. Es el guion de la demo de Users.
 
+En la revisión de la Etapa 10 se sumaron el 400 del login (USR-002 con body vacío), el 401 de un email que no existe y el **bloqueo en vivo** (D-09): con Ana registrada, el login con contraseña incorrecta se ejecuta tres veces (las tres responden 401 y la tercera bloquea) y después el login correcto responde 403 con USR-004.
+
 ---
 
 ## 5. El contrato con Orders y Notifications
@@ -301,7 +303,7 @@ En el **tercer** intento, en cambio, la cuenta todavía estaba activa: se verifi
 | `Infrastructure/UserRepositoryHealthCheck` | El check `persistencia` de `/health/ready` |
 | `Users.API.http` | Los requests de la demo |
 
-El resto (`ExceptionHandlers/`, middlewares, logging, Swagger y health checks) es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#8-mapa-de-archivos).
+El resto (`ExceptionHandlers/`, middlewares, logging, Swagger y health checks) es la plantilla de Products: ver su [mapa de archivos](repaso-products-api.md#9-mapa-de-archivos).
 
 ### `tests/Users.API.Tests/`
 
@@ -340,11 +342,10 @@ Después se completó la alineación con la plantilla: métodos en inglés (`aba
 
 ## 10. Lo que falta
 
-Users no consume a otros servicios, así que **no tiene tareas en la Etapa 9**. Queda pendiente:
+Users no consume a otros servicios, así que **no tiene tareas en la Etapa 9**: solo recibe el `X-Correlation-Id` que le mandan Orders y Notifications, y lo usa en sus logs como cualquier otro request. USR-007 ya está en la tabla de códigos de error del README (Etapa 10). Queda pendiente:
 
 - Consultar con los docentes el endpoint adicional y el código USR-007 (sección 5.2 del plan).
 - Reemplazar `InMemoryUserRepository` cuando llegue la librería de la cátedra (D-03).
-- Agregar USR-007 a la tabla de códigos de error del README (Etapa 10).
 
 ---
 

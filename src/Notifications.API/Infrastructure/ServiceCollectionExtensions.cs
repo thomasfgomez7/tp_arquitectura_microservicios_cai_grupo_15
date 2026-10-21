@@ -22,15 +22,17 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationService, NotificationService>();
 
         // Typed client: IHttpClientFactory crea y recicla los HttpClient y le inyecta a UsersClient
-        // uno ya configurado con la URL de Users.API.
+        // uno ya configurado con la URL de Users.API. El DelegatingHandler propaga el Correlation ID.
         var usersUrl = configuration["Services:UsersApi:BaseUrl"]
                        ?? throw new InvalidOperationException("Falta la configuración 'Services:UsersApi:BaseUrl'.");
 
+        services.AddTransient<CorrelationIdDelegatingHandler>();
         services.AddHttpClient<IUsersClient, UsersClient>(client =>
-        {
-            client.BaseAddress = new Uri(usersUrl);
-            client.Timeout = TimeSpan.FromSeconds(5);
-        });
+            {
+                client.BaseAddress = new Uri(usersUrl);
+                client.Timeout = TimeSpan.FromSeconds(5);
+            })
+            .AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
 
         return services;
     }
