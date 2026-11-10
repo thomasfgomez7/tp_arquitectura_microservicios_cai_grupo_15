@@ -19,6 +19,13 @@ TestResults/
 *.sln.docstates
 
 # =========================
+# Bases SQLite de cada servicio (se crean solas al arrancar, D-40)
+# =========================
+*.db
+*.db-shm
+*.db-wal
+
+# =========================
 # Logs (Serilog)
 # =========================
 logs/

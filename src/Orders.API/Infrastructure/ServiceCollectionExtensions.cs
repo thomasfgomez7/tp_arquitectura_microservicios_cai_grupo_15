@@ -18,7 +18,10 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddOrderServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<IOrderRepository>(_ => new InMemoryOrderRepository(OrderSeedData.Create()));
+        // Persistencia en SQLite con Dapper, como el ToDo de la cátedra (D-40). El servicio solo ve la interfaz.
+        services.AddSingleton<SqliteConnectionFactory>();
+        services.AddSingleton<DatabaseInitializer>();
+        services.AddSingleton<IOrderRepository, SqliteOrderRepository>();
         services.AddScoped<IOrderService, OrderService>();
 
         // Typed clients: IHttpClientFactory crea y recicla los HttpClient (evita agotar conexiones) y

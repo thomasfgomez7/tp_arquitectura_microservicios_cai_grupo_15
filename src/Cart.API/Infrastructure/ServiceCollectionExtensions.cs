@@ -19,7 +19,10 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCartServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<ICartRepository>(_ => new InMemoryCartRepository(CartSeedData.Create()));
+        // Persistencia en SQLite con Dapper, como el ToDo de la cátedra (D-40). El servicio solo ve la interfaz.
+        services.AddSingleton<SqliteConnectionFactory>();
+        services.AddSingleton<DatabaseInitializer>();
+        services.AddSingleton<ICartRepository, SqliteCartRepository>();
         services.AddScoped<ICartService, CartService>();
 
         // Typed client: IHttpClientFactory crea y recicla los HttpClient (evita agotar conexiones) y le

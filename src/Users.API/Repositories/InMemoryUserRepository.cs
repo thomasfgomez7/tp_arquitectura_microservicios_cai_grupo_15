@@ -4,8 +4,8 @@ using Users.API.Models;
 namespace Users.API.Repositories;
 
 /// <summary>
-/// Persistencia en memoria hasta recibir la librería de la cátedra (D-03).
-/// Se registra como Singleton para que los datos sobrevivan entre requests.
+/// Persistencia en memoria. La app usa <see cref="SqliteUserRepository"/> (D-40); esta implementación
+/// queda como "fake" de los tests unitarios del servicio: guarda de verdad, sin disco.
 /// </summary>
 public class InMemoryUserRepository : IUserRepository
 {

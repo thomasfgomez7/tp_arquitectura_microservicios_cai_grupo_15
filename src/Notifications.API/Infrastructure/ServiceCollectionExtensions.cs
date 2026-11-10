@@ -17,7 +17,10 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<INotificationRepository, InMemoryNotificationRepository>();
+        // Persistencia en SQLite con Dapper, como el ToDo de la cátedra (D-40). El servicio solo ve la interfaz.
+        services.AddSingleton<SqliteConnectionFactory>();
+        services.AddSingleton<DatabaseInitializer>();
+        services.AddSingleton<INotificationRepository, SqliteNotificationRepository>();
         services.AddSingleton<INotificationSender, SimulatedNotificationSender>();
         services.AddScoped<INotificationService, NotificationService>();
 
