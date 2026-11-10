@@ -72,8 +72,9 @@ ECommerce.slnx
 │   ├── planificacion/            # este plan
 │   ├── arquitectura/             # diagramas del sistema, de clases y de secuencia
 │   ├── repasos/                  # repaso general + un repaso por API (repaso-<servicio>-api.md)
-│   └── capturas/                 # capturas de Swagger para el entregable (Etapa 10)
-├── scripts/                      # start-all.sh / start-all.ps1 y capture-swagger.py (Etapa 10)
+│   ├── capturas/                 # capturas de Swagger para el entregable (Etapa 10)
+│   └── defensa/                  # guion de la demo y revisión cruzada (Etapa 11)
+├── scripts/                      # start-all.sh / .ps1, capture-swagger.py (Etapa 10) y verify-system.py (Etapa 11)
 └── README.md
 ```
 
@@ -260,9 +261,9 @@ Clases concretas: `NotificationsController`, `Notification`, `NotificationType` 
 | Hito | Al terminar | Resultado | Estado |
 |---|---|---|---|
 | H1 | Bloque 1 | Solución, proyectos y tests compilando | ✅ PR #1 (27/09) |
-| H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | 🟡 Products y Users listos; falta el PR |
-| H3 | Bloque 5 | Los cinco servicios funcionando | 🟡 Los cinco servicios completos; falta el PR |
-| H4 | Bloque 7 | Integración entre servicios, documentación y entrega | ⬜ |
+| H2 | Bloque 3 | Products.API completo (plantilla) y Users.API con su contrato de errores | ✅ PR #2 (08/10) |
+| H3 | Bloque 5 | Los cinco servicios funcionando | ✅ PR #3 (21/10), con la integración de punta a punta (Etapa 9) y la documentación (Etapa 10) |
+| H4 | Bloque 7 | Integración entre servicios, documentación y entrega | 🟡 Prueba integral y guion listos; faltan el ensayo, la revisión cruzada y el PR final |
 
 Los bloques se describen en la sección 4.2.
 
@@ -414,7 +415,7 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 |---|---|---|
 | D-01 | Solución `ECommerce.slnx` con `src/*.API` y `tests/*.Tests`, usando `MiniApi` como guía. | Sección 6 del enunciado + TDD. |
 | D-02 | Controllers en lugar de Minimal API. | La sección 6 pide la carpeta `Controllers/` y XML comments en controladores. |
-| D-03 | Persistencia en memoria detrás de interfaces de repositorio hasta recibir la librería de la cátedra. | Permite avanzar sin bloquearse y cambiar la implementación sin tocar servicios. |
+| D-03 | Persistencia detrás de interfaces de repositorio: en memoria hasta conocer la de la cátedra (desde el 10/11, SQLite, D-40). | Permite avanzar sin bloquearse y cambiar la implementación sin tocar servicios. |
 | D-04 | `appsettings.Development.json` se versiona (se quita del `.gitignore`). | El enunciado pide controlar el nivel de detalle de errores por entorno; no contiene secretos. |
 | D-05 | Sin librería compartida entre microservicios. | Autonomía de cada servicio; bajo acoplamiento. |
 | D-06 | Endpoint adicional `GET /api/users/{id}` en Users.API, con el nuevo código `USR-007` (ver 5.1). | Orders (ORD-003) y Notifications (NTF-001) necesitan verificar que el usuario exista. |
@@ -451,6 +452,7 @@ Decisiones propias ante puntos que el enunciado no define. Se documentan tambié
 | D-37 | En `GET /api/orders`, un filtro (`usuarioId` o `productoId`) que no es un GUID devuelve 200 con `[]`. | El endpoint solo admite 200 y 500 (D-12): un filtro inválido no coincide con ninguna orden. |
 | D-38 | `POST /api/orders` no devuelve ni documenta el 409 que lista el enunciado. | El catálogo no tiene ningún error 409 al crear una orden (ORD-006 es del `PUT /status`). Se consulta con los docentes. |
 | D-39 | Si Orders.API responde un error o no responde (timeout de 5 segundos), `DELETE /api/products/{id}` responde 500 con PRD-005 y **no** borra el producto. `/health/ready` de Products informa `Degraded`. | Sin saber si hay órdenes activas no se puede aplicar PRD-004, y un borrado no se puede deshacer ("fallar cerrado"). El resto de los endpoints no depende de Orders, por eso es `Degraded` y no `Unhealthy`. |
+| D-40 | Persistencia en SQLite con Dapper, siguiendo el ToDo de la cátedra (`cai-uba/toDoList-2026`, rama `feature/completo`): una base por servicio (`ConnectionStrings:DefaultConnection`), un `DatabaseInitializer` que crea las tablas y carga los datos semilla si están vacías, y un `SqliteXxxRepository` con el SQL a mano detrás de la interfaz de repositorio. Guid, importes y fechas se guardan como texto; Cart y Orders guardan cabecera e items en una transacción. Se usa `Microsoft.Data.Sqlite` 10.0.14 (el ToDo usa 10.0.7, que trae un SQLite nativo con una vulnerabilidad conocida). Los repositorios en memoria quedan como fakes de los tests unitarios; cada factory de tests usa su propia base temporal. | La cátedra indicó que la persistencia es la del ToDo ("Provista por la cátedra", sección 1 del enunciado). Los servicios, controllers y contratos no cambian. |
 
 ### 5.1 Códigos de error agregados al catálogo
 
@@ -477,7 +479,7 @@ Este código se documenta en Swagger y en la tabla de códigos de error del READ
 
 ### 5.2 Pendientes
 
-- [ ] Recibir la librería de persistencia de la cátedra y reemplazar los repositorios en memoria.
+- [x] Persistencia de la cátedra: es el ToDo `cai-uba/toDoList-2026` (rama `feature/completo`), SQLite con Dapper para copiar. Migrados los cinco servicios el 10/11 (D-40).
 - [ ] Consultar con los docentes si están de acuerdo con los endpoints adicionales (D-06, D-07) y el código USR-007.
 - [ ] Consultar con los docentes el 409 de `POST /api/orders`, que ningún código del catálogo produce (D-38).
 - [x] Acordar si Orders tiene una orden semilla Pendiente con la Notebook, para mostrar PRD-004 en la demo: **sí** (12/10). La implementación es una tarea de Juan Pablo en la Etapa 10.
@@ -773,7 +775,7 @@ Juan Pablo:
 - [x] Tabla completa de códigos de error en el README, incluyendo USR-007.
 - [x] Decisiones de diseño (sección 5 de este documento) en el README.
 - [x] Orden semilla en Orders.API: Pendiente, de María, con la Notebook (`3fa85f64-…`), para que `DELETE /api/products/3fa85f64-…` responda PRD-004 apenas se levantan los servicios. La tabla "Datos de prueba" del README la incluye.
-- [ ] Probar `scripts/start-all.ps1` en Windows: levantar los cinco servicios, verificar las URLs que muestra y que Enter los detenga. No se pudo probar en macOS: usa `Get-NetTCPConnection` y `taskkill`, que solo existen en Windows.
+- [x] Probar `scripts/start-all.ps1` en Windows: levantar los cinco servicios, verificar las URLs que muestra y que Enter los detenga. Probado el 09/11: arranca y se detiene bien, pero si un servicio ya se había detenido a mano (como en el bloque 6 de la demo), el error de `taskkill` cortaba el apagado y quedaban otros corriendo. Corregido con `$ErrorActionPreference = 'Continue'` en el `finally`.
 
 Archivos `.http` con casos de éxito y de error, revisados para la demo:
 - [x] Products y Cart (Thomas): PRD-004 de punta a punta con Orders, Correlation ID hacia otro servicio y `/health/ready` con la dependencia caída.
@@ -783,8 +785,9 @@ Archivos `.http` con casos de éxito y de error, revisados para la demo:
 
 **Responsables:** Thomas y Juan Pablo (juntos) · **Bloque:** 7
 
-- [ ] Recorrer de punta a punta todo el catálogo de errores de los cinco servicios.
-- [ ] Verificar logs (consola y archivo) y health checks de cada servicio.
-- [ ] Guion de la demo (15 a 20 minutos): endpoints exitosos y de error desde Swagger, logs y health checks.
-- [ ] Revisión cruzada: cada integrante explica en voz alta un servicio del otro.
+- [x] Recorrer de punta a punta todo el catálogo de errores de los cinco servicios: `scripts/verify-system.py` provoca los 28 códigos contra los servicios reales (USR-006 solo por tests: Users no depende de otro servicio). 59 de 59 chequeos el 21/10.
+- [x] Verificar logs (consola y archivo) y health checks de cada servicio: incluido en el mismo script (Correlation ID entre servicios, campos de la sección 5.3 y `Degraded` con cada dependencia apagada).
+- [x] Guion de la demo (15 a 20 minutos): [`docs/defensa/guion-demo.md`](../defensa/guion-demo.md).
+- [ ] Ensayar la demo con el guion, cronometrada.
+- [ ] Revisión cruzada: cada integrante explica en voz alta los servicios del otro, con la guía de [`docs/defensa/revision-cruzada.md`](../defensa/revision-cruzada.md).
 - [ ] PR final `develop` → `main` (Thomas).

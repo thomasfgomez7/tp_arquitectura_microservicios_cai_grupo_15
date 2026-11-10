@@ -18,10 +18,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
-        // El repositorio arranca con los usuarios de la demo; necesita el hasher para sus contraseñas.
-        services.AddSingleton<IUserRepository>(provider =>
-            new InMemoryUserRepository(
-                UserSeedData.Create(provider.GetRequiredService<IPasswordHasher<User>>())));
+        // Persistencia en SQLite con Dapper, como el ToDo de la cátedra (D-40). El servicio solo ve la interfaz.
+        // La primera vez, DatabaseInitializer carga los usuarios de la demo (necesita el hasher para sus contraseñas).
+        services.AddSingleton<SqliteConnectionFactory>();
+        services.AddSingleton<DatabaseInitializer>();
+        services.AddSingleton<IUserRepository, SqliteUserRepository>();
 
         services.AddSingleton<AccountLockoutPolicy>();
         services.AddScoped<IUserService, UserService>();

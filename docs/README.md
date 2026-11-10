@@ -6,7 +6,7 @@
 |---|---|---|
 | [`consignas/`](consignas/) | [TP_Microservicios_ECommerce_v7.md](consignas/TP_Microservicios_ECommerce_v7.md) | El enunciado de la cátedra en Markdown, para leerlo desde GitHub |
 | | [TP_Microservicios_ECommerce_v7.docx](consignas/TP_Microservicios_ECommerce_v7.docx) | El documento original; ante cualquier diferencia, vale este |
-| [`planificacion/`](planificacion/) | [plan-de-desarrollo.md](planificacion/plan-de-desarrollo.md) | La guía de trabajo: estado actual, estructura, convenciones de código, reparto de tareas, decisiones de diseño (D-01 a D-39) y etapas |
+| [`planificacion/`](planificacion/) | [plan-de-desarrollo.md](planificacion/plan-de-desarrollo.md) | La guía de trabajo: estado actual, estructura, convenciones de código, reparto de tareas, decisiones de diseño (D-01 a D-40) y etapas |
 | [`arquitectura/`](arquitectura/) | [arquitectura.md](arquitectura/arquitectura.md) | Diagramas del sistema, de capas, de clases y de secuencia |
 | [`repasos/`](repasos/) | [repaso-general.md](repasos/repaso-general.md) | Vista de conjunto: línea de tiempo, planificación, trabajo en equipo, arquitectura, revisiones de código y próximos pasos |
 | | [repaso-products-api.md](repasos/repaso-products-api.md) | Cómo se construyó Products.API, que es la plantilla de todas las APIs |
@@ -15,6 +15,8 @@
 | | [repaso-notifications-api.md](repasos/repaso-notifications-api.md) | Cómo se construyó Notifications.API: envío simulado y cliente de Users |
 | | [repaso-orders-api.md](repasos/repaso-orders-api.md) | Cómo se construyó Orders.API: máquina de estados y clientes de Users y Products |
 | [`capturas/`](capturas/) | [README.md](capturas/README.md) | Capturas de Swagger UI con una respuesta de error real por servicio (entregable de la sección 9.2) |
+| [`defensa/`](defensa/) | [guion-demo.md](defensa/guion-demo.md) | La demo de 15 a 20 minutos: bloques, tiempos, responsables y requests |
+| | [revision-cruzada.md](defensa/revision-cruzada.md) | Qué tiene que poder explicar cada integrante de los servicios del otro |
 
 ## Repasos por API
 

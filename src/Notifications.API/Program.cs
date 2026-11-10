@@ -14,6 +14,9 @@ builder.Services.AddNotificationHealthChecks();
 
 var app = builder.Build();
 
+// Crea la tabla antes de atender requests (como el ToDo de la cátedra).
+await app.Services.GetRequiredService<Notifications.API.Repositories.DatabaseInitializer>().InitializeAsync();
+
 // El orden importa: el Correlation ID tiene que existir antes del primer log, y el log de fin
 // del request tiene que ver la respuesta final que armó el manejo de errores.
 app.UseMiddleware<CorrelationIdMiddleware>();
