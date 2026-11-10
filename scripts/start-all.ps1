@@ -59,6 +59,9 @@ try {
     Read-Host 'Enter para detenerlos'
 }
 finally {
+    # Un servicio que ya se detuvo a mano hace fallar a taskkill: sin esto, ese error
+    # cortaría el bucle y los servicios siguientes quedarían corriendo.
+    $ErrorActionPreference = 'Continue'
     # "dotnet run" lanza la API como proceso hijo: taskkill /T detiene el árbol completo.
     Write-Host 'Deteniendo los servicios...'
     foreach ($process in $processes) {
