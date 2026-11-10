@@ -109,7 +109,7 @@ Controller → Service → Repository (persistencia) / Clients (otros servicios)
 
 Diagramas de clases y de secuencia: [docs/arquitectura/arquitectura.md](docs/arquitectura/arquitectura.md).
 
-> **Persistencia:** la librería de la cátedra todavía no fue entregada. Mientras tanto, cada servicio usa un repositorio en memoria detrás de una interfaz, con datos semilla para la demo. Cuando llegue la librería, solo cambia esa implementación.
+> **Persistencia:** SQLite con Dapper, siguiendo el ejemplo de la cátedra ([ToDo, rama `feature/completo`](https://github.com/cai-uba/toDoList-2026/tree/feature/completo)): una base por servicio (`src/<Servicio>.API/<servicio>.db`), detrás de la interfaz de repositorio de cada uno (D-40). La base se crea sola al arrancar, con los datos semilla; no hay que instalar nada.
 
 ---
 
@@ -135,7 +135,7 @@ Los tests no necesitan ningún servicio levantado: cada API se levanta en memori
 
 ### Prueba integral
 
-Con los servicios **apagados**, este script levanta los cinco, provoca los 28 códigos del catálogo, apaga una dependencia a la vez para los errores 500 y verifica health checks, Correlation ID entre servicios y logs en archivo. Solo necesita Python 3:
+Con los servicios **apagados** y las bases borradas (así arrancan con los datos semilla), este script levanta los cinco, provoca los 28 códigos del catálogo, apaga una dependencia a la vez para los errores 500 y verifica health checks, Correlation ID entre servicios y logs en archivo. Solo necesita Python 3, en macOS o Linux:
 
 ```bash
 python3 scripts/verify-system.py
@@ -195,6 +195,8 @@ Cada servicio arranca con datos semilla, con los IDs de los ejemplos del enuncia
 
 Notifications arranca vacío: las notificaciones se crean con los IDs de arriba.
 
+Los datos se guardan en SQLite y **sobreviven a los reinicios** (por ejemplo, un usuario bloqueado en vivo sigue bloqueado). Para volver a los datos semilla, con los servicios apagados, borrar las bases: `src/<Servicio>.API/*.db`.
+
 ---
 
 ## Estructura del repositorio
@@ -207,7 +209,7 @@ Notifications arranca vacío: las notificaciones se crean con los IDs de arriba.
 │   └── <Servicio>.API/
 │       ├── Controllers/       # traducen HTTP ↔ DTO
 │       ├── Services/          # reglas de negocio
-│       ├── Repositories/      # persistencia (en memoria por ahora)
+│       ├── Repositories/      # persistencia en SQLite (y datos semilla)
 │       ├── Clients/           # llamadas a otros servicios
 │       ├── Models/ · DTOs/
 │       ├── Exceptions/        # ErrorCodes y excepciones de dominio
@@ -228,7 +230,7 @@ Notifications arranca vacío: las notificaciones se crean con los IDs de arriba.
 | Documento | Contenido |
 |---|---|
 | [Consignas](docs/consignas/TP_Microservicios_ECommerce_v7.md) | El enunciado de la cátedra en Markdown ([`.docx` original](docs/consignas/TP_Microservicios_ECommerce_v7.docx)) |
-| [Plan de desarrollo](docs/planificacion/plan-de-desarrollo.md) | Estado, decisiones de diseño (D-01 a D-39), convenciones de código, reparto de tareas y etapas |
+| [Plan de desarrollo](docs/planificacion/plan-de-desarrollo.md) | Estado, decisiones de diseño (D-01 a D-40), convenciones de código, reparto de tareas y etapas |
 | [Arquitectura](docs/arquitectura/arquitectura.md) | Diagramas del sistema, de clases y de secuencia |
 | [Repaso general](docs/repasos/repaso-general.md) | Vista de conjunto: planificación, trabajo en equipo, arquitectura, revisiones y próximos pasos |
 | [Repaso de Products.API](docs/repasos/repaso-products-api.md) | Cómo se construyó la plantilla de cada API, decisión por decisión |
@@ -331,7 +333,8 @@ El enunciado deja puntos sin definir. Cada uno se resolvió con una decisión ex
 |---|---|---|
 | D-01 | Solución `ECommerce.slnx` con `src/*.API` y `tests/*.Tests` | Estructura de la sección 6 del enunciado, más un proyecto de tests por API |
 | D-02 | Controllers en lugar de Minimal API | El enunciado pide la carpeta `Controllers/` y XML comments en los controladores |
-| D-03 | Persistencia en memoria detrás de una interfaz de repositorio | Avanzar sin la librería de la cátedra; cuando llegue, solo cambia la implementación |
+| D-03 | Persistencia detrás de una interfaz de repositorio | Los servicios no dependen de cómo se guardan los datos: el paso de memoria a SQLite (D-40) no los cambió |
+| D-40 | SQLite con Dapper, como el ToDo de la cátedra, con una base por servicio | La persistencia la indica la cátedra; cada servicio sigue siendo dueño de sus datos |
 | D-04 | `appsettings.Development.json` versionado | Define el nivel de detalle de los errores por entorno; no tiene secretos |
 | D-05 | Sin librería compartida entre servicios | Cada microservicio es autónomo: un cambio en uno no obliga a coordinar los cinco |
 | D-15 | Interfaces solo donde aportan desacoplamiento | Servicios, persistencia, otros microservicios y dependencias del entorno |

@@ -43,7 +43,7 @@ flowchart TB
     mw["Middlewares<br/>CorrelationIdMiddleware · RequestLoggingMiddleware"]
     ctrl["Controllers<br/>solo traducen HTTP ↔ DTO"]
     svc["Services<br/>reglas de negocio · lanzan excepciones de dominio"]
-    repo["Repositories<br/>persistencia (en memoria → librería de la cátedra)"]
+    repo["Repositories<br/>persistencia (SQLite con Dapper, D-40)"]
     cli["Clients<br/>llamadas a otros microservicios"]
     eh["ExceptionHandlers<br/>excepción → JSON de error del contrato"]
 
@@ -436,7 +436,7 @@ Cómo reacciona según lo que responde Products.API:
 | Pieza | Products | Users | Cart | Orders | Notifications |
 |---|---|---|---|---|---|
 | Service | `IProductService` → `ProductService` | `IUserService` → `UserService` | `ICartService` → `CartService` | `IOrderService` → `OrderService` | `INotificationService` → `NotificationService` |
-| Repository | `IProductRepository` → `InMemoryProductRepository` | `IUserRepository` → `InMemoryUserRepository` | `ICartRepository` → `InMemoryCartRepository` | `IOrderRepository` → `InMemoryOrderRepository` | `INotificationRepository` → `InMemoryNotificationRepository` |
+| Repository | `IProductRepository` → `SqliteProductRepository` | `IUserRepository` → `SqliteUserRepository` | `ICartRepository` → `SqliteCartRepository` | `IOrderRepository` → `SqliteOrderRepository` | `INotificationRepository` → `SqliteNotificationRepository` |
 | Clients | `IOrdersClient` | — | `IProductsClient` | `IUsersClient`, `IProductsClient` | `IUsersClient` |
 | Regla propia | — | `AccountLockoutPolicy` | `ShoppingCart` (operaciones sobre items) | `OrderStatusTransitions` | `INotificationSender` → `SimulatedNotificationSender` |
 | Códigos | PRD-001…005 | USR-001…007 | CRT-001…005 | ORD-001…007 | NTF-001…004 |

@@ -424,7 +424,7 @@ Todo se corrigió el 07/10 (`f927227`, `54a8efa`). Después se revisaron los dos
 
 ## 13. Las decisiones, agrupadas por tema
 
-Las 39 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
+Las 40 decisiones del plan, agrupadas para entender **qué problema resuelve cada grupo**. El texto completo está en la sección 5 del plan.
 
 **Estructura y entorno**
 
@@ -439,9 +439,10 @@ Las 39 decisiones del plan, agrupadas para entender **qué problema resuelve cad
 
 | # | Decisión | En una línea |
 |---|---|---|
-| D-03 | Persistencia en memoria detrás de interfaces | Avanzar sin esperar la librería de la cátedra |
+| D-03 | Persistencia en memoria detrás de interfaces | Avanzar sin esperar la de la cátedra; desde el 10/11, SQLite (D-40) |
 | D-05 | Sin librería compartida | Autonomía de cada microservicio |
 | D-15 | Interfaces solo donde aportan | Bajo acoplamiento sin interfaces innecesarias |
+| D-40 | SQLite con Dapper, como el ToDo de la cátedra | Una base por servicio, detrás de la interfaz de repositorio |
 
 **Huecos del enunciado (contratos entre servicios y reglas)**
 
@@ -549,4 +550,4 @@ Por servicios: cada uno es dueño de los suyos y los contratos entre servicios s
 Que cada tipo de test detecta un tipo de error distinto. Los tests unitarios no detectaron dependencias sin registrar ni un repositorio con el ciclo de vida equivocado. Por eso cada API tiene un test que levanta la app real y verifica el contenedor.
 
 **¿Cómo resolvieron lo que el enunciado no define?**
-Con decisiones explícitas y documentadas: 39 en el registro del plan, cada una con su motivo. Las que agregan endpoints (D-06, D-07) o se apartan de la tabla del enunciado (D-38) quedaron marcadas para consultarlas con los docentes.
+Con decisiones explícitas y documentadas: 40 en el registro del plan, cada una con su motivo. Las que agregan endpoints (D-06, D-07) o se apartan de la tabla del enunciado (D-38) quedaron marcadas para consultarlas con los docentes.

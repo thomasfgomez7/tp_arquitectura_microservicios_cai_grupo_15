@@ -25,7 +25,7 @@ El orden sigue los criterios de evaluación (sección 8), de mayor a menor peso.
    python3 scripts/verify-system.py
    ```
 
-2. Levantar los cinco servicios (así arrancan con los datos semilla intactos):
+2. Levantar los cinco servicios. Antes, borrar las bases (`src/*/*.db`) para que arranquen con los datos semilla intactos: con SQLite, los datos de un ensayo anterior sobreviven a los reinicios.
 
    ```bash
    ./scripts/start-all.sh
@@ -58,7 +58,7 @@ Mostrar el diagrama del README.
 
 - Cinco microservicios, cada uno con su puerto, sus datos y su proyecto de tests, en una sola solución.
 - Se comunican solo por HTTP con `IHttpClientFactory`: Cart y Orders consultan a Products; Orders y Notifications, a Users; Products consulta a Orders antes de borrar.
-- Dentro de cada API: Controller → Service → Repository / Clients, siempre a través de interfaces. Persistencia en memoria hasta que llegue la librería de la cátedra: cuando llegue, solo cambia la implementación del repositorio.
+- Dentro de cada API: Controller → Service → Repository / Clients, siempre a través de interfaces. Persistencia en SQLite con Dapper, como el ToDo de la cátedra, con una base por servicio (D-40): el cambio desde la versión en memoria fue solo la implementación del repositorio.
 
 > **Frase clave:** "Cada servicio es dueño de sus datos. Si Cart necesita el stock, se lo pregunta a Products; no lo lee de su base."
 

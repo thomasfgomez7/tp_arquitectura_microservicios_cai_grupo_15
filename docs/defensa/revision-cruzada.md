@@ -65,7 +65,7 @@ Para cada servicio: primero el **recorrido completo de un request** (sección 7 
 
 - ¿Qué es el Correlation ID, cómo se genera, cómo se valida (D-20) y cómo viaja a otro servicio?
 - ¿Por qué `/health/ready` informa `Degraded` y no `Unhealthy` cuando se cae una dependencia (D-24)?
-- ¿Qué cambia cuando llegue la librería de persistencia de la cátedra?
+- ¿Cómo se pasó de los repositorios en memoria a SQLite con Dapper (D-40) sin tocar los servicios? ¿Qué guarda cada tabla y por qué Cart y Orders usan una transacción?
 - ¿Por qué no hay una librería compartida entre los servicios, si el código de la plantilla se repite (D-05)?
 - ¿Qué es TDD y en qué los ayudó? Dar un ejemplo concreto de un bug que encontró un test.
 
